@@ -164,6 +164,8 @@ void Device::setupDebugMessenger() {
     if (!enableValidationLayers)
         return;
 
+    //auto dldi = vk::DispatchLoaderDynamic(*instance, vkGetInstanceProcAddr);
+
     auto createInfo = vk::DebugUtilsMessengerCreateInfoEXT(
         vk::DebugUtilsMessengerCreateFlagsEXT(),
         vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
@@ -174,7 +176,7 @@ void Device::setupDebugMessenger() {
 
     // NOTE: Vulkan-hpp has methods for this, but they trigger linking errors...
     //instance->createDebugUtilsMessengerEXT(createInfo);
-    //instance->createDebugUtilsMessengerEXTUnique(createInfo);
+    //instance->createDebugUtilsMessengerEXTUnique(createInfo, nullptr, dldi);
 
     // NOTE: reinterpret_cast is also used by vulkan.hpp internally for all these structs
     if (CreateDebugUtilsMessengerEXT(*instance, reinterpret_cast<const VkDebugUtilsMessengerCreateInfoEXT*>(&createInfo), nullptr, &callback) != VK_SUCCESS) {
@@ -230,10 +232,8 @@ bool Device::checkDeviceExtensionSupport(const vk::PhysicalDevice& device) const
 QueueFamilyIndices Device::findQueueFamilies(const vk::PhysicalDevice& device) const {
     QueueFamilyIndices indices;
 
-    auto queueFamilies = device.getQueueFamilyProperties();
-
     uint32_t i = 0;
-    for (const auto& queueFamily : queueFamilies) {
+    for (const auto& queueFamily : device.getQueueFamilyProperties()) {
         if (queueFamily.queueCount > 0 && queueFamily.queueFlags & vk::QueueFlagBits::eGraphics) {
             indices.graphicsFamily = i;
         }
@@ -271,9 +271,9 @@ void Device::createLogicalDevice() {
 
     auto deviceFeatures = vk::PhysicalDeviceFeatures();
     auto createInfo = vk::DeviceCreateInfo(
-            vk::DeviceCreateFlags(),
-            static_cast<uint32_t>(queueCreateInfos.size()),
-            queueCreateInfos.data()
+        vk::DeviceCreateFlags(),
+        static_cast<uint32_t>(queueCreateInfos.size()),
+        queueCreateInfos.data()
     );
     createInfo.pEnabledFeatures = &deviceFeatures;
     createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
@@ -300,10 +300,6 @@ void Device::createSurface(const Window& window) {
         throw std::runtime_error("failed to create window surface!");
     }
     surface = raw;
-}
-
-const vk::UniqueDevice& Device::operator()() const {
-    return device;
 }
 
 const vk::UniqueDevice& Device::getDevice() const {
@@ -351,10 +347,105 @@ void Device::createCommandPool() {
 
     vk::CommandPoolCreateInfo poolInfo{};
     poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
+    poolInfo.flags = vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 
     try {
         commandPool = device->createCommandPool(poolInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create command pool!");
     }
+}
+
+vk::Format Device::findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const {
+    for (const auto& format : candidates) {
+        vk::FormatProperties props;
+        physicalDevice.getFormatProperties(format, &props);
+
+        if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features ||
+            tiling == vk::ImageTiling::eOptimal && (props.optimalTilingFeatures & features) == features) {
+            return format;
+        }
+    }
+
+    throw std::runtime_error("failed to find supported format!");
+}
+
+void Device::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const {
+    vk::BufferCreateInfo bufferInfo{};
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
+    bufferInfo.sharingMode = vk::SharingMode::eExclusive;
+
+    try {
+        buffer = device->createBuffer(bufferInfo);
+    }catch (vk::SystemError& err) {
+        throw std::runtime_error("failed to create buffer!");
+    }
+
+    vk::MemoryRequirements memRequirements = device->getBufferMemoryRequirements(buffer);
+
+    vk::MemoryAllocateInfo allocInfo{};
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+    try {
+        bufferMemory = device->allocateMemory(allocInfo);
+    } catch (vk::SystemError& err) {
+        throw std::runtime_error("failed to allocate buffer memory!");
+    }
+
+    device->bindBufferMemory(buffer, bufferMemory, 0);
+}
+
+void Device::copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size) const {
+    vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+
+    vk::BufferCopy copyRegion{};
+    copyRegion.srcOffset = 0; // Optional
+    copyRegion.dstOffset = 0; // Optional
+    copyRegion.size = size;
+    commandBuffer.copyBuffer(srcBuffer, dstBuffer, copyRegion);
+
+    endSingleTimeCommands(commandBuffer);
+}
+
+vk::CommandBuffer Device::beginSingleTimeCommands() const {
+    vk::CommandBufferAllocateInfo allocInfo{};
+    allocInfo.level = vk::CommandBufferLevel::ePrimary;
+    allocInfo.commandPool = commandPool;
+    allocInfo.commandBufferCount = 1;
+
+    vk::CommandBuffer commandBuffer = device->allocateCommandBuffers(allocInfo)[0];
+
+    vk::CommandBufferBeginInfo beginInfo{};
+    beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+
+    commandBuffer.begin(beginInfo);
+
+    return commandBuffer;
+}
+
+void Device::endSingleTimeCommands(const vk::CommandBuffer& commandBuffer) const {
+    commandBuffer.end();
+
+    vk::SubmitInfo submitInfo{};
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    graphicsQueue.submit(submitInfo, nullptr);
+    graphicsQueue.waitIdle();
+
+    device->freeCommandBuffers(commandPool, commandBuffer);
+}
+
+uint32_t Device::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const {
+    vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    throw std::runtime_error("failed to find suitable memory type!");
 }

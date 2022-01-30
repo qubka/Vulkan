@@ -4,12 +4,12 @@ namespace Engine {
     class Device;
 
     struct PipelineConfigInfo {
-        PipelineConfigInfo(const PipelineConfigInfo&) = delete;
+        /*PipelineConfigInfo(const PipelineConfigInfo&) = delete;
         PipelineConfigInfo(PipelineConfigInfo&&) = default;
         PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
-        PipelineConfigInfo& operator=(PipelineConfigInfo&&) = delete;
+        PipelineConfigInfo& operator=(PipelineConfigInfo&&) = delete;*/
 
-        /*std::vector<vk::VertexInputBindingDescription> bindingDescriptions{};
+        std::vector<vk::VertexInputBindingDescription> bindingDescriptions{};
         std::vector<vk::VertexInputAttributeDescription> attributeDescriptions{};
         vk::PipelineViewportStateCreateInfo viewportInfo{};
         vk::PipelineInputAssemblyStateCreateInfo inputAssemblyInfo{};
@@ -20,18 +20,6 @@ namespace Engine {
         vk::PipelineDepthStencilStateCreateInfo depthStencilInfo{};
         std::vector<vk::DynamicState> dynamicStateEnables{};
         vk::PipelineDynamicStateCreateInfo dynamicStateInfo{};
-        vk::PipelineLayout pipelineLayout{nullptr};
-        vk::RenderPass renderPass{nullptr};
-        uint32_t subpass{0};*/
-        vk::PipelineVertexInputStateCreateInfo vertexInputInfo = {};
-        vk::PipelineInputAssemblyStateCreateInfo inputAssembly = {};
-        vk::Viewport viewport = {};
-        vk::Rect2D scissor = {};
-        vk::PipelineViewportStateCreateInfo viewportState = {};
-        vk::PipelineRasterizationStateCreateInfo rasterizer = {};
-        vk::PipelineMultisampleStateCreateInfo multisampling = {};
-        vk::PipelineColorBlendStateCreateInfo colorBlending = {};
-        vk::PipelineColorBlendAttachmentState colorBlendAttachment = {};
         vk::PipelineLayout pipelineLayout{nullptr};
         vk::RenderPass renderPass{nullptr};
         uint32_t subpass{0};
@@ -51,8 +39,7 @@ namespace Engine {
 
         void bind(const vk::CommandBuffer& commandBuffer) const;
 
-        //static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
-        static PipelineConfigInfo defaultPipelineConfigInfo(uint32_t width, uint32_t height);
+        static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
     private:
         Device& device;
         vk::Pipeline graphicsPipeline;

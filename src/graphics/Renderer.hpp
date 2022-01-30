@@ -16,13 +16,13 @@ namespace Engine {
 
         const vk::RenderPass& getSwapChainRenderPass() const;
         bool isFrameInProgress() const;
-        vk::CommandBuffer getCurrentCommandBuffer() const;
+        const vk::CommandBuffer& getCurrentCommandBuffer() const;
         uint32_t getFrameIndex() const;
 
-        const vk::CommandBuffer& beginFrame();
-        void beginSwapChainRenderPass(const vk::CommandBuffer& commandBuffer);
-        void endSwapChainRenderPass(const vk::CommandBuffer& commandBuffer);
-        void endFrame();
+        uint32_t beginFrame();
+        void beginSwapChainRenderPass(uint32_t frameIndex);
+        void endSwapChainRenderPass(uint32_t frameIndex);
+        void endFrame(uint32_t frameIndex);
 
     private:
         void createCommandBuffers();

@@ -31,7 +31,6 @@ namespace Engine {
         Device& operator=(const Device&) = delete;
         Device& operator=(Device&&) = delete;
 
-        const vk::UniqueDevice& operator()() const;
         const vk::UniqueDevice& getDevice() const;
         const vk::PhysicalDevice& getPhysicalDevice() const;
         const vk::SurfaceKHR& getSurface() const;
@@ -41,6 +40,10 @@ namespace Engine {
 
         SwapChainSupportDetails getSwapChainSupport() const;
         QueueFamilyIndices findPhysicalQueueFamilies() const;
+
+        vk::Format findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
+        void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const;
+        void copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size) const;
 
     private:
         void createInstance();
@@ -57,6 +60,10 @@ namespace Engine {
         bool checkDeviceExtensionSupport(const vk::PhysicalDevice& device) const;
         QueueFamilyIndices findQueueFamilies(const vk::PhysicalDevice& device) const;
         SwapChainSupportDetails querySwapChainSupport(const vk::PhysicalDevice& device) const;
+
+        vk::CommandBuffer beginSingleTimeCommands() const;
+        void endSingleTimeCommands(const vk::CommandBuffer& commandBuffer) const;
+        uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const;
 
         vk::UniqueInstance instance;
         vk::PhysicalDevice physicalDevice;

@@ -5,6 +5,7 @@
 #include "graphics/Device.hpp"
 #include "graphics/SwapChain.hpp"
 #include "graphics/Pipeline.hpp"
+#include "graphics/Renderer.hpp"
 
 #define WIDTH 1280
 #define HEIGHT 720
@@ -27,16 +28,9 @@ namespace Engine {
             return instance;
         }
     private:
-        std::vector<vk::CommandBuffer, std::allocator<vk::CommandBuffer>> commandBuffers;
-
         Window window{"Engine", WIDTH, HEIGHT};
         Input input{window};
         Device device{window};
-        SwapChain swapChain{device, {WIDTH, HEIGHT}};
-        std::unique_ptr<Pipeline> pipeline;
-        vk::PipelineLayout pipelineLayout;
-        //Renderer renderer{window, device};
-
-
+        Renderer renderer{window, device};
     };
 }

@@ -22,7 +22,7 @@ void Window::init() {
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
     window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
     if (window == nullptr) {
@@ -60,11 +60,11 @@ const std::string& Window::getTitle() const {
     return title;
 }
 
-bool Engine::Window::wasResized() const {
+bool Window::wasResized() const {
     return resized;
 }
 
-void Engine::Window::resetResized() {
+void Window::resetResized() {
     resized = false;
 }
 

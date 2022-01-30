@@ -24,8 +24,8 @@ namespace Engine {
         const glm::vec2& mouseDelta() const;
 
     private:
-        bool keys[1032]{};
-        uint32_t frames[1032]{};
+        std::array<bool, 1032> keys{};
+        std::array<uint32_t, 1032> frames{};
         uint32_t current{};
         glm::vec2 delta{};
         glm::vec2 position{};
