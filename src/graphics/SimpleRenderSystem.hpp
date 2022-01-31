@@ -4,6 +4,7 @@ namespace Engine {
     class Pipeline;
     class Device;
     class Mesh;
+    class FrameInfo;
 
     class SimpleRenderSystem {
     public:
@@ -14,7 +15,7 @@ namespace Engine {
         SimpleRenderSystem& operator=(const SimpleRenderSystem&) = delete;
         SimpleRenderSystem& operator=(SimpleRenderSystem&&) = delete;
 
-        void renderEntities(const vk::CommandBuffer& commandBuffer);
+        void renderEntities(const FrameInfo& frameInfo);
 
     private:
         void createPipelineLayout();
@@ -24,6 +25,6 @@ namespace Engine {
         std::unique_ptr<Pipeline> pipeline;
         std::unique_ptr<Mesh> mesh;
         std::unique_ptr<Mesh> mesh2;
-        vk::PipelineLayout pipelineLayout;
+        vk::UniquePipelineLayout pipelineLayout;
     };
 }

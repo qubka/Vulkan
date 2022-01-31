@@ -56,7 +56,7 @@ void SwapChain::createSwapChain() {
 
     vk::SwapchainCreateInfoKHR createInfo(
             vk::SwapchainCreateFlagsKHR(),
-            device.getSurface(),
+            *device.getSurface(),
             imageCount,
             surfaceFormat.format,
             surfaceFormat.colorSpace,

@@ -33,10 +33,10 @@ namespace Engine {
 
         const vk::UniqueDevice& getDevice() const;
         const vk::PhysicalDevice& getPhysicalDevice() const;
-        const vk::SurfaceKHR& getSurface() const;
+        const vk::UniqueSurfaceKHR& getSurface() const;
         const vk::Queue& getGraphicsQueue() const;
         const vk::Queue& getPresentQueue() const;
-        const vk::CommandPool& getCommandPool() const;
+        const vk::UniqueCommandPool& getCommandPool() const;
 
         SwapChainSupportDetails getSwapChainSupport() const;
         QueueFamilyIndices findPhysicalQueueFamilies() const;
@@ -44,6 +44,7 @@ namespace Engine {
         vk::Format findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
         void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const;
         void copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size) const;
+        void createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory) const;
 
     private:
         void createInstance();
@@ -70,8 +71,8 @@ namespace Engine {
         vk::UniqueDevice device;
         vk::Queue graphicsQueue;
         vk::Queue presentQueue;
-        vk::SurfaceKHR surface;
-        vk::CommandPool commandPool;
+        vk::UniqueSurfaceKHR surface;
+        vk::UniqueCommandPool commandPool;
 
         VkDebugUtilsMessengerEXT callback;
 

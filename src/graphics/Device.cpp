@@ -37,12 +37,6 @@ Device::Device(const Window& window) {
 }
 
 Device::~Device() {
-    // NOTE: instance destruction is handled by UniqueInstance, same for device
-    device->destroyCommandPool(commandPool);
-
-    // surface is created by glfw, therefore not using a Unique handle
-    instance->destroySurfaceKHR(surface);
-
     if (enableValidationLayers) {
         DestroyDebugUtilsMessengerEXT(*instance, callback, nullptr);
     }
@@ -61,14 +55,14 @@ void Device::createInstance() {
               << ", Minor: " << VK_API_VERSION_MINOR(version)
               << ", Patch: " << VK_API_VERSION_PATCH(version) << '\n';
 
-    version = VK_MAKE_API_VERSION(0, 1, 0, 0);
+    version = VK_MAKE_VERSION(1, 0, 0);
 
     auto appInfo = vk::ApplicationInfo(
         "VulkanEngine App",
         version,
         "No Engine",
         version,
-        version
+        VK_API_VERSION_1_0
     );
 
     hasGflwRequiredInstanceExtensions();
@@ -170,13 +164,14 @@ void Device::setupDebugMessenger() {
         vk::DebugUtilsMessengerCreateFlagsEXT(),
         vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError,
         vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance,
-        debugCallback,
-        nullptr
+        debugCallback
     );
 
     // NOTE: Vulkan-hpp has methods for this, but they trigger linking errors...
     //instance->createDebugUtilsMessengerEXT(createInfo);
     //instance->createDebugUtilsMessengerEXTUnique(createInfo, nullptr, dldi);
+
+    //callback = instance->createDebugUtilsMessengerEXTUnique(createInfo, nullptr, dldi);
 
     // NOTE: reinterpret_cast is also used by vulkan.hpp internally for all these structs
     if (CreateDebugUtilsMessengerEXT(*instance, reinterpret_cast<const VkDebugUtilsMessengerCreateInfoEXT*>(&createInfo), nullptr, &callback) != VK_SUCCESS) {
@@ -238,7 +233,7 @@ QueueFamilyIndices Device::findQueueFamilies(const vk::PhysicalDevice& device) c
             indices.graphicsFamily = i;
         }
 
-        if (queueFamily.queueCount > 0 && device.getSurfaceSupportKHR(i, surface)) {
+        if (queueFamily.queueCount > 0 && device.getSurfaceSupportKHR(i, *surface)) {
             indices.presentFamily = i;
         }
 
@@ -299,14 +294,14 @@ void Device::createSurface(const Window& window) {
     if (glfwCreateWindowSurface(*instance, window, nullptr, &raw) != VK_SUCCESS) {
         throw std::runtime_error("failed to create window surface!");
     }
-    surface = raw;
+    surface = vk::UniqueSurfaceKHR(raw, *instance);
 }
 
 const vk::UniqueDevice& Device::getDevice() const {
     return device;
 }
 
-const vk::SurfaceKHR& Device::getSurface() const {
+const vk::UniqueSurfaceKHR& Device::getSurface() const {
     return surface;
 }
 
@@ -322,15 +317,15 @@ const vk::PhysicalDevice& Device::getPhysicalDevice() const {
     return physicalDevice;
 }
 
-const vk::CommandPool& Device::getCommandPool() const {
+const vk::UniqueCommandPool& Device::getCommandPool() const {
     return commandPool;
 }
 
 SwapChainSupportDetails Device::querySwapChainSupport(const vk::PhysicalDevice& device) const {
     SwapChainSupportDetails details;
-    details.capabilities = device.getSurfaceCapabilitiesKHR(surface);
-    details.formats = device.getSurfaceFormatsKHR(surface);
-    details.presentModes = device.getSurfacePresentModesKHR(surface);
+    details.capabilities = device.getSurfaceCapabilitiesKHR(*surface);
+    details.formats = device.getSurfaceFormatsKHR(*surface);
+    details.presentModes = device.getSurfacePresentModesKHR(*surface);
     return details;
 }
 
@@ -350,7 +345,7 @@ void Device::createCommandPool() {
     poolInfo.flags = vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 
     try {
-        commandPool = device->createCommandPool(poolInfo);
+        commandPool = device->createCommandPoolUnique(poolInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create command pool!");
     }
@@ -412,7 +407,7 @@ void Device::copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::
 vk::CommandBuffer Device::beginSingleTimeCommands() const {
     vk::CommandBufferAllocateInfo allocInfo{};
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
-    allocInfo.commandPool = commandPool;
+    allocInfo.commandPool = *commandPool;
     allocInfo.commandBufferCount = 1;
 
     vk::CommandBuffer commandBuffer = device->allocateCommandBuffers(allocInfo)[0];
@@ -435,7 +430,7 @@ void Device::endSingleTimeCommands(const vk::CommandBuffer& commandBuffer) const
     graphicsQueue.submit(submitInfo, nullptr);
     graphicsQueue.waitIdle();
 
-    device->freeCommandBuffers(commandPool, commandBuffer);
+    device->freeCommandBuffers(*commandPool, commandBuffer);
 }
 
 uint32_t Device::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const {
@@ -448,4 +443,37 @@ uint32_t Device::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags pro
     }
 
     throw std::runtime_error("failed to find suitable memory type!");
+}
+
+void Device::createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory) const {
+    /*vk::ImageCreateInfo imageInfo{};
+    imageInfo.imageType = vk::ImageType::e2D;
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = tiling;
+    imageInfo.initialLayout = vk::ImageLayout::eUndefined;
+    imageInfo.usage = usage;
+    imageInfo.samples = vk::SampleCountFlagBits::e1;
+    imageInfo.sharingMode = vk::SharingMode::eExclusive;
+
+    if (device->createImage(&imageInfo, nullptr, &image) != vk::Result::eSuccess) {
+        throw std::runtime_error("failed to create image!");
+    }
+
+    vk::MemoryRequirements memRequirements;
+    device->getImageMemoryRequirements(image, &memRequirements);
+
+    vk::MemoryAllocateInfo allocInfo{};
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+    if (device->allocateMemory(&allocInfo, nullptr, &imageMemory) != vk::Result::eSuccess) {
+        throw std::runtime_error("failed to allocate image memory!");
+    }
+
+    device->bindImageMemory(image, imageMemory, 0);*/
 }

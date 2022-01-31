@@ -6,6 +6,7 @@
 #include "graphics/SwapChain.hpp"
 #include "graphics/Pipeline.hpp"
 #include "graphics/Renderer.hpp"
+#include "graphics/Camera.hpp"
 
 #define WIDTH 1280
 #define HEIGHT 720
@@ -32,5 +33,7 @@ namespace Engine {
         Input input{window};
         Device device{window};
         Renderer renderer{window, device};
+        Camera camera{window, 5.0f, 45.0f, 0.1f, 100.0f};
+        entt::registry registry;
     };
 }

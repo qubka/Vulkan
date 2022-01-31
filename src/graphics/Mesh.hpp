@@ -6,8 +6,9 @@ namespace Engine {
     class Mesh {
     public:
         struct Vertex {
-            glm::vec2 position{};
+            glm::vec3 position{};
             glm::vec3 color{};
+            //glm::vec2 texCoord{};
 
             static std::vector<vk::VertexInputBindingDescription> getBindingDescriptions();
             static std::vector<vk::VertexInputAttributeDescription> getAttributeDescriptions();

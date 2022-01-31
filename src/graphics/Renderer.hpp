@@ -16,7 +16,7 @@ namespace Engine {
 
         const vk::RenderPass& getSwapChainRenderPass() const;
         bool isFrameInProgress() const;
-        const vk::CommandBuffer& getCurrentCommandBuffer() const;
+        vk::CommandBuffer& getCurrentCommandBuffer();
         uint32_t getFrameIndex() const;
 
         uint32_t beginFrame();

@@ -42,7 +42,7 @@ namespace Engine {
         static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
     private:
         Device& device;
-        vk::Pipeline graphicsPipeline;
+        vk::UniquePipeline graphicsPipeline;
 
         vk::UniqueShaderModule createShaderModule(const std::vector<char>& code);
         void createGraphicsPipeline(const std::string& vertPath, const std::string& fragPath, const PipelineConfigInfo& configInfo);

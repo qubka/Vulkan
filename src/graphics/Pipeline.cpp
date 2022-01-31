@@ -10,9 +10,6 @@ Pipeline::Pipeline(Device& device, const std::string& vertPath, const std::strin
 }
 
 Pipeline::~Pipeline() {
-    //device.getDevice()->destroyShaderModule(vertShaderModule);
-    //device.getDevice()->destroyShaderModule(fragShaderModule);
-    device.getDevice()->destroyPipeline(graphicsPipeline);
 }
 
 void Pipeline::createGraphicsPipeline(const std::string& vertPath, const std::string& fragPath, const PipelineConfigInfo& configInfo) {
@@ -60,11 +57,11 @@ void Pipeline::createGraphicsPipeline(const std::string& vertPath, const std::st
     pipelineInfo.subpass = configInfo.subpass;
     pipelineInfo.basePipelineHandle = nullptr;
 
-    try {
-        graphicsPipeline = device.getDevice()->createGraphicsPipeline(nullptr, pipelineInfo).value;
-    } catch (vk::SystemError& err) {
+    auto pipeline = device.getDevice()->createGraphicsPipelineUnique(nullptr, pipelineInfo);
+    if (pipeline.result != vk::Result::eSuccess) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
+    graphicsPipeline = std::move(pipeline.value);
 }
 
 vk::UniqueShaderModule Pipeline::createShaderModule(const std::vector<char>& code) {
@@ -98,7 +95,7 @@ std::vector<char> Pipeline::readFile(const std::string& path) {
 }
 
 void Pipeline::bind(const vk::CommandBuffer& commandBuffer) const {
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
 }
 
 void Pipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) {

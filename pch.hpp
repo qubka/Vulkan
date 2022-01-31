@@ -31,7 +31,7 @@
 #include <vulkan/vulkan.hpp>
 
 // ENTT
-//#include <entt/entt.hpp>
+#include <entt/entt.hpp>
 
 // GLM
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE

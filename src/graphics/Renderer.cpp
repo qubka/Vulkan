@@ -17,7 +17,7 @@ Renderer::~Renderer() {
 
 void Renderer::createCommandBuffers() {
     vk::CommandBufferAllocateInfo allocInfo{};
-    allocInfo.commandPool = device.getCommandPool();
+    allocInfo.commandPool = *device.getCommandPool();
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
     allocInfo.commandBufferCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
 
@@ -29,7 +29,7 @@ void Renderer::createCommandBuffers() {
 }
 
 void Renderer::freeCommandBuffers() {
-    device.getDevice()->freeCommandBuffers(device.getCommandPool(), commandBuffers);
+    device.getDevice()->freeCommandBuffers(*device.getCommandPool(), commandBuffers);
     commandBuffers.clear();
 }
 
@@ -155,7 +155,7 @@ bool Renderer::isFrameInProgress() const {
     return isFrameStarted;
 }
 
-const vk::CommandBuffer& Renderer::getCurrentCommandBuffer() const {
+vk::CommandBuffer& Renderer::getCurrentCommandBuffer() {
     assert(isFrameStarted && "Cannot get command buffer when frame not in progress");
     return commandBuffers[currentFrameIndex];
 }

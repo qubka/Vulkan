@@ -1,5 +1,6 @@
 #include "Game.hpp"
 #include "graphics/SimpleRenderSystem.hpp"
+#include "graphics/FrameInfo.hpp"
 
 using Engine::Game;
 
@@ -31,9 +32,21 @@ void Game::run() {
             window.shouldClose(true);
         }
 
+        camera.update(input, deltaTime);
+
         if (auto frameIndex = renderer.beginFrame(); frameIndex != std::numeric_limits<uint32_t>::max()) {
             renderer.beginSwapChainRenderPass(frameIndex);
-            simpleRenderSystem.renderEntities(renderer.getCurrentCommandBuffer());
+
+            FrameInfo frameInfo{
+                frameIndex,
+                deltaTime,
+                renderer.getCurrentCommandBuffer(),
+                camera,
+                registry
+            };
+
+            simpleRenderSystem.renderEntities(frameInfo);
+
             renderer.endSwapChainRenderPass(frameIndex);
             renderer.endFrame(frameIndex);
         }
