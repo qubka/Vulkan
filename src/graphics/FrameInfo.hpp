@@ -3,6 +3,10 @@
 namespace Engine {
     class Camera;
 
+    struct GlobalUbo {
+        glm::mat4 model{1};
+    };
+
     struct FrameInfo {
         uint32_t frameIndex;
         float deltaTime;

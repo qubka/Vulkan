@@ -1,6 +1,7 @@
 #include "Game.hpp"
 #include "graphics/SimpleRenderSystem.hpp"
 #include "graphics/FrameInfo.hpp"
+#include "graphics/Buffer.hpp"
 
 using Engine::Game;
 
@@ -16,6 +17,20 @@ Game::~Game() {
 }
 
 void Game::run() {
+    /*std::vector<std::unique_ptr<Buffer>> uboBuffers;
+    uboBuffers.reserve(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
+    for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        auto uboBuffer = std::make_unique<Buffer>(
+                device,
+                sizeof(GlobalUbo),
+                1,
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible);
+        uboBuffer->map();
+        uboBuffers.push_back(std::move(uboBuffer));
+    }*/
+
     SimpleRenderSystem simpleRenderSystem{device, renderer.getSwapChainRenderPass()};
 
     float currentTime = static_cast<float>(glfwGetTime());
@@ -54,7 +69,7 @@ void Game::run() {
         input.reset();
     }
 
-    device.getDevice()->waitIdle();
+    device()->waitIdle();
 }
 
 int main() {

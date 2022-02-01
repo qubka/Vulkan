@@ -22,14 +22,14 @@ void Renderer::createCommandBuffers() {
     allocInfo.commandBufferCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
 
     try {
-        commandBuffers = device.getDevice()->allocateCommandBuffers(allocInfo);
+        commandBuffers = device()->allocateCommandBuffers(allocInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to allocate command buffers!");
     }
 }
 
 void Renderer::freeCommandBuffers() {
-    device.getDevice()->freeCommandBuffers(*device.getCommandPool(), commandBuffers);
+    device()->freeCommandBuffers(*device.getCommandPool(), commandBuffers);
     commandBuffers.clear();
 }
 
@@ -40,7 +40,7 @@ void Renderer::recreateSwapChain() {
         glfwWaitEvents();
     }
 
-    device.getDevice()->waitIdle();
+    device()->waitIdle();
 
     if (swapChain == nullptr) {
         swapChain = std::make_unique<SwapChain>(device, extent);

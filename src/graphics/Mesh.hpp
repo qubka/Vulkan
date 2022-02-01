@@ -8,7 +8,7 @@ namespace Engine {
         struct Vertex {
             glm::vec3 position{};
             glm::vec3 color{};
-            //glm::vec2 texCoord{};
+            glm::vec2 texCoord{};
 
             static std::vector<vk::VertexInputBindingDescription> getBindingDescriptions();
             static std::vector<vk::VertexInputAttributeDescription> getAttributeDescriptions();
@@ -41,7 +41,6 @@ namespace Engine {
         void createIndexBuffers(const std::vector<uint32_t>& indices);
 
         Device& device;
-
         std::unique_ptr<Buffer> vertexBuffer;
         uint32_t vertexCount;
         bool hasIndexBuffer = false;

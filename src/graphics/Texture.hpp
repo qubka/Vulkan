@@ -1,11 +1,16 @@
 #pragma once
 
 namespace Engine {
+    class Device;
+
     class Texture {
         std::string path;
-        //aiTextureType aiType{aiTextureType_DIFFUSE};
+
+        Device& device;
+        vk::Image textureImage;
+        vk::DeviceMemory textureImageMemory;
     public:
-        Texture(std::string path);
+        Texture(Device& device, std::string path);
         ~Texture();
     };
 }

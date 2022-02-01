@@ -57,7 +57,7 @@ void Pipeline::createGraphicsPipeline(const std::string& vertPath, const std::st
     pipelineInfo.subpass = configInfo.subpass;
     pipelineInfo.basePipelineHandle = nullptr;
 
-    auto pipeline = device.getDevice()->createGraphicsPipelineUnique(nullptr, pipelineInfo);
+    auto pipeline = device()->createGraphicsPipelineUnique(nullptr, pipelineInfo);
     if (pipeline.result != vk::Result::eSuccess) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
@@ -66,7 +66,7 @@ void Pipeline::createGraphicsPipeline(const std::string& vertPath, const std::st
 
 vk::UniqueShaderModule Pipeline::createShaderModule(const std::vector<char>& code) {
     try {
-        return device.getDevice()->createShaderModuleUnique({
+        return device()->createShaderModuleUnique({
             vk::ShaderModuleCreateFlags(),
             code.size(),
             reinterpret_cast<const uint32_t*>(code.data())

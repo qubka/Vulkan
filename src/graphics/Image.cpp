@@ -10,7 +10,7 @@ Image::Image(const std::string& path, int channel, bool flip) {
     pixels = stbi_load(path.c_str(), &width, &height, &channels, channel);
     if (!pixels)
         throw std::runtime_error("Failed to load image: \"" + path + "\" - " + stbi_failure_reason());
-    size = width * height * channels;
+    size = width * height * std::max(channel, channels);
 }
 
 Image::~Image() {

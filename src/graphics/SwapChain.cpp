@@ -16,21 +16,21 @@ SwapChain::SwapChain(Device& device, vk::Extent2D windowExtent, std::shared_ptr<
 
 SwapChain::~SwapChain() {
     for (const auto& imageView : swapChainImageViews) {
-        device.getDevice()->destroyImageView(imageView);
+        device()->destroyImageView(imageView);
     }
 
-    device.getDevice()->destroySwapchainKHR(swapChain);
+    device()->destroySwapchainKHR(swapChain);
 
     for (const auto& framebuffer : swapChainFramebuffers) {
-        device.getDevice()->destroyFramebuffer(framebuffer);
+        device()->destroyFramebuffer(framebuffer);
     }
 
-    device.getDevice()->destroyRenderPass(renderPass);
+    device()->destroyRenderPass(renderPass);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        device.getDevice()->destroySemaphore(renderFinishedSemaphores[i]);
-        device.getDevice()->destroySemaphore(imageAvailableSemaphores[i]);
-        device.getDevice()->destroyFence(inFlightFences[i]);
+        device()->destroySemaphore(renderFinishedSemaphores[i]);
+        device()->destroySemaphore(imageAvailableSemaphores[i]);
+        device()->destroyFence(inFlightFences[i]);
     }
 }
 
@@ -85,12 +85,12 @@ void SwapChain::createSwapChain() {
     createInfo.oldSwapchain = oldSwapChain == nullptr ? vk::SwapchainKHR(nullptr) : oldSwapChain->swapChain;
 
     try {
-        swapChain = device.getDevice()->createSwapchainKHR(createInfo);
+        swapChain = device()->createSwapchainKHR(createInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create swap chain!");
     }
 
-    swapChainImages = device.getDevice()->getSwapchainImagesKHR(swapChain);
+    swapChainImages = device()->getSwapchainImagesKHR(swapChain);
 
     swapChainImageFormat = surfaceFormat.format;
     swapChainExtent = extent;
@@ -154,7 +154,7 @@ void SwapChain::createImageViews() {
         createInfo.subresourceRange.layerCount = 1;
 
         try {
-            swapChainImageViews.push_back(device.getDevice()->createImageView(createInfo));
+            swapChainImageViews.push_back(device()->createImageView(createInfo));
         } catch (vk::SystemError& err) {
             throw std::runtime_error("failed to create image views!");
         }
@@ -198,7 +198,7 @@ void SwapChain::createRenderPass() {
     renderPassInfo.pDependencies = &dependency;
 
     try {
-        renderPass = device.getDevice()->createRenderPass(renderPassInfo);
+        renderPass = device()->createRenderPass(renderPassInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create render pass!");
     }
@@ -221,7 +221,7 @@ void SwapChain::createFramebuffers() {
         framebufferInfo.layers = 1;
 
         try {
-            swapChainFramebuffers.push_back(device.getDevice()->createFramebuffer(framebufferInfo));
+            swapChainFramebuffers.push_back(device()->createFramebuffer(framebufferInfo));
         } catch (vk::SystemError& err) {
             throw std::runtime_error("failed to create framebuffer!");
         }
@@ -236,9 +236,9 @@ void SwapChain::createSyncObjects() {
 
     try {
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-            imageAvailableSemaphores.push_back(device.getDevice()->createSemaphore({}));
-            renderFinishedSemaphores.push_back(device.getDevice()->createSemaphore({}));
-            inFlightFences.push_back(device.getDevice()->createFence({vk::FenceCreateFlagBits::eSignaled}));
+            imageAvailableSemaphores.push_back(device()->createSemaphore({}));
+            renderFinishedSemaphores.push_back(device()->createSemaphore({}));
+            inFlightFences.push_back(device()->createFence({vk::FenceCreateFlagBits::eSignaled}));
         }
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create synchronization objects for a frame!");
@@ -328,12 +328,12 @@ size_t SwapChain::imageCount() const {
 }
 
 vk::Result SwapChain::acquireNextImage(uint32_t& imageIndex) const {
-    auto result = device.getDevice()->waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
+    auto result = device()->waitForFences(1, &inFlightFences[currentFrame], VK_TRUE, std::numeric_limits<uint64_t>::max());
     if (result != vk::Result::eSuccess) {
         throw std::runtime_error("failed to wait for fences");
     }
 
-    auto nextImageKHR = device.getDevice()->acquireNextImageKHR(swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphores[currentFrame], nullptr);
+    auto nextImageKHR = device()->acquireNextImageKHR(swapChain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphores[currentFrame], nullptr);
     imageIndex = nextImageKHR.value;
     return nextImageKHR.result;
 }
@@ -342,7 +342,7 @@ vk::Result SwapChain::submitCommandBuffers(const vk::CommandBuffer& buffers, con
     const auto& fence = inFlightFences[currentFrame];
     /*const auto* image = imagesInFlight[imageIndex];
     if (image != nullptr) {
-        device.getDevice()->waitForFences(1, image, VK_TRUE, std::numeric_limits<uint64_t>::max());
+        device()->waitForFences(1, image, VK_TRUE, std::numeric_limits<uint64_t>::max());
     }
     imagesInFlight[imageIndex] = &fence;*/
 
@@ -361,7 +361,7 @@ vk::Result SwapChain::submitCommandBuffers(const vk::CommandBuffer& buffers, con
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    auto result = device.getDevice()->resetFences(1, &fence);
+    auto result = device()->resetFences(1, &fence);
     if (result != vk::Result::eSuccess) {
         throw std::runtime_error("failed to reset the fence");
     }

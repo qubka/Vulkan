@@ -297,6 +297,10 @@ void Device::createSurface(const Window& window) {
     surface = vk::UniqueSurfaceKHR(raw, *instance);
 }
 
+const vk::UniqueDevice& Engine::Device::operator()() const {
+    return device;
+}
+
 const vk::UniqueDevice& Device::getDevice() const {
     return device;
 }
@@ -365,6 +369,18 @@ vk::Format Device::findSupportedFormat(const std::vector<vk::Format>& candidates
     throw std::runtime_error("failed to find supported format!");
 }
 
+uint32_t Device::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const {
+    vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
+        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
+            return i;
+        }
+    }
+
+    throw std::runtime_error("failed to find suitable memory type!");
+}
+
 void Device::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const {
     vk::BufferCreateInfo bufferInfo{};
     bufferInfo.size = size;
@@ -404,6 +420,27 @@ void Device::copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::
     endSingleTimeCommands(commandBuffer);
 }
 
+void Device::copyBufferToImage(const vk::Buffer& buffer, const vk::Image& image, uint32_t width, uint32_t height, uint32_t layerCount) const {
+    vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
+
+    vk::BufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+
+    region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = layerCount;
+
+    region.imageOffset = vk::Offset3D{0, 0, 0};
+    region.imageExtent = vk::Extent3D{width, height, 1};
+
+    commandBuffer.copyBufferToImage(buffer, image, vk::ImageLayout::eTransferDstOptimal, 1, &region);
+
+    endSingleTimeCommands(commandBuffer);
+}
+
 vk::CommandBuffer Device::beginSingleTimeCommands() const {
     vk::CommandBufferAllocateInfo allocInfo{};
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
@@ -433,20 +470,54 @@ void Device::endSingleTimeCommands(const vk::CommandBuffer& commandBuffer) const
     device->freeCommandBuffers(*commandPool, commandBuffer);
 }
 
-uint32_t Device::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const {
-    vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+void Engine::Device::transitionImageLayout(const vk::Image& image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout) const {
+    vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
 
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-        if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties) {
-            return i;
-        }
+    vk::ImageMemoryBarrier barrier{};
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    vk::PipelineStageFlagBits sourceStage;
+    vk::PipelineStageFlagBits destinationStage;
+
+    if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal) {
+        barrier.srcAccessMask = vk::AccessFlagBits::eNoneKHR;
+        barrier.dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+
+        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+        destinationStage = vk::PipelineStageFlagBits::eTransfer;
+
+    } else if (oldLayout == vk::ImageLayout::eTransferDstOptimal && newLayout == vk::ImageLayout::eShaderReadOnlyOptimal) {
+        barrier.srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+        barrier.dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+        sourceStage = vk::PipelineStageFlagBits::eTransfer;
+        destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
+
+    } else {
+        throw std::invalid_argument("unsupported layout transition!");
     }
 
-    throw std::runtime_error("failed to find suitable memory type!");
+    commandBuffer.pipelineBarrier(sourceStage,
+                                  destinationStage,
+                                  {},
+                                  nullptr,
+                                  nullptr,
+                                  barrier);
+
+    endSingleTimeCommands(commandBuffer);
 }
 
 void Device::createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory) const {
-    /*vk::ImageCreateInfo imageInfo{};
+    vk::ImageCreateInfo imageInfo{};
     imageInfo.imageType = vk::ImageType::e2D;
     imageInfo.extent.width = width;
     imageInfo.extent.height = height;
@@ -460,20 +531,23 @@ void Device::createImage(uint32_t width, uint32_t height, vk::Format format, vk:
     imageInfo.samples = vk::SampleCountFlagBits::e1;
     imageInfo.sharingMode = vk::SharingMode::eExclusive;
 
-    if (device->createImage(&imageInfo, nullptr, &image) != vk::Result::eSuccess) {
+    try {
+        image = device->createImage(imageInfo);
+    } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create image!");
     }
 
-    vk::MemoryRequirements memRequirements;
-    device->getImageMemoryRequirements(image, &memRequirements);
+    vk::MemoryRequirements memRequirements = device->getImageMemoryRequirements(image);
 
     vk::MemoryAllocateInfo allocInfo{};
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
-    if (device->allocateMemory(&allocInfo, nullptr, &imageMemory) != vk::Result::eSuccess) {
+    try {
+        imageMemory = device->allocateMemory(allocInfo);
+    } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to allocate image memory!");
     }
 
-    device->bindImageMemory(image, imageMemory, 0);*/
+    device->bindImageMemory(image, imageMemory, 0);
 }

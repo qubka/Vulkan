@@ -4,11 +4,6 @@ namespace Engine {
     class Device;
 
     struct PipelineConfigInfo {
-        /*PipelineConfigInfo(const PipelineConfigInfo&) = delete;
-        PipelineConfigInfo(PipelineConfigInfo&&) = default;
-        PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
-        PipelineConfigInfo& operator=(PipelineConfigInfo&&) = delete;*/
-
         std::vector<vk::VertexInputBindingDescription> bindingDescriptions{};
         std::vector<vk::VertexInputAttributeDescription> attributeDescriptions{};
         vk::PipelineViewportStateCreateInfo viewportInfo{};

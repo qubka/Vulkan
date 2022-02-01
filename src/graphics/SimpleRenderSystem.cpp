@@ -2,40 +2,34 @@
 #include "Device.hpp"
 #include "Pipeline.hpp"
 #include "Mesh.hpp"
+#include "Texture.hpp"
+#include "FrameInfo.hpp"
 
 using Engine::SimpleRenderSystem;
 
 struct PushConstantData {
-    glm::mat4 modelMatrix{1.f};
+    glm::mat4 viewProj{1};
 };
 
-SimpleRenderSystem::SimpleRenderSystem(Device& device, const vk::RenderPass& renderPass/*, VkDescriptorSetLayout globalSetLayout*/) : device{device} {
+SimpleRenderSystem::SimpleRenderSystem(Device& device, const vk::RenderPass& renderPass/*, const std::vector<vk::UniqueDescriptorSetLayout>& globalSetLayout*/) : device{device} {
     createPipelineLayout();
     createPipeline(renderPass);
+
+    texture = std::make_unique<Texture>(device, "textures/texture.jpg");
 
     Mesh::Builder builder;
 
     builder.vertices = {
-            {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-            {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-            {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-            {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+        {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+        {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
 
-            {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-            {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-            {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
-            {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}}
+        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+        {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
     };
-
-    /*            {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-            {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-
-            {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-            {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-            {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}*/
 
     builder.indices = {
             0, 1, 2, 2, 3, 0,
@@ -49,19 +43,20 @@ SimpleRenderSystem::SimpleRenderSystem(Device& device, const vk::RenderPass& ren
 SimpleRenderSystem::~SimpleRenderSystem() {
 }
 
-void SimpleRenderSystem::createPipelineLayout() {
+void SimpleRenderSystem::createPipelineLayout(/*const std::vector<vk::UniqueDescriptorSetLayout>& globalSetLayout*/) {
     vk::PushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment;
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(PushConstantData);
 
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.setLayoutCount = 0;
+    pipelineLayoutInfo.setLayoutCount = 0;//static_cast<uint32_t>(globalSetLayout.size());
+    //pipelineLayoutInfo.pSetLayouts = &*globalSetLayout[0];
     pipelineLayoutInfo.pushConstantRangeCount = 1;
     pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
     try {
-        pipelineLayout = device.getDevice()->createPipelineLayoutUnique(pipelineLayoutInfo);
+        pipelineLayout = device()->createPipelineLayoutUnique(pipelineLayoutInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
@@ -77,9 +72,18 @@ void SimpleRenderSystem::createPipeline(const vk::RenderPass& renderPass) {
 }
 
 void SimpleRenderSystem::renderEntities(const FrameInfo& frameInfo) {
-    /*pipeline->bind(commandBuffer);
+    pipeline->bind(frameInfo.commandBuffer);
 
-    PushConstantData push{};
+    /*frameInfo.commandBuffer.bindDescriptorSets(
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipelineLayout,
+            0,
+            1,
+            &frameInfo.globalDescriptorSet,
+            0,
+            nullptr);*/
+
+    /*PushConstantData push{};
     push.modelMatrix = frameInfo.camera.getViewProjection() * transform.mat4();
 
     commandBuffer.pushConstants(
@@ -87,8 +91,8 @@ void SimpleRenderSystem::renderEntities(const FrameInfo& frameInfo) {
             vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
             0,
             sizeof(PushConstantData),
-            &push);
+            &push);*/
 
-    mesh->bind(commandBuffer);
-    mesh->draw(commandBuffer);*/
+    mesh->bind(frameInfo.commandBuffer);
+    mesh->draw(frameInfo.commandBuffer);
 }

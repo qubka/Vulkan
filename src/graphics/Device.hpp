@@ -31,6 +31,7 @@ namespace Engine {
         Device& operator=(const Device&) = delete;
         Device& operator=(Device&&) = delete;
 
+        const vk::UniqueDevice& operator()() const;
         const vk::UniqueDevice& getDevice() const;
         const vk::PhysicalDevice& getPhysicalDevice() const;
         const vk::UniqueSurfaceKHR& getSurface() const;
@@ -44,7 +45,9 @@ namespace Engine {
         vk::Format findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
         void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const;
         void copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size) const;
+        void copyBufferToImage(const vk::Buffer& buffer, const vk::Image& image, uint32_t width, uint32_t height, uint32_t layerCount) const;
         void createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory) const;
+        void transitionImageLayout(const vk::Image& image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout) const;
 
     private:
         void createInstance();

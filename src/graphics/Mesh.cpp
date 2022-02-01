@@ -19,22 +19,22 @@ void Mesh::createVertexBuffers(const std::vector<Vertex>& vertices) {
     uint32_t vertexSize = sizeof(vertices[0]);
 
     Buffer stagingBuffer{
-            device,
-            vertexSize,
-            vertexCount,
-            vk::BufferUsageFlagBits::eTransferSrc,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+        device,
+        vertexSize,
+        vertexCount,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
     };
 
     stagingBuffer.map();
     stagingBuffer.writeToBuffer((void *)vertices.data());
 
     vertexBuffer = std::make_unique<Buffer>(
-            device,
-            vertexSize,
-            vertexCount,
-            vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-            vk::MemoryPropertyFlagBits::eDeviceLocal);
+        device,
+        vertexSize,
+        vertexCount,
+        vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        vk::MemoryPropertyFlagBits::eDeviceLocal);
 
     device.copyBuffer(stagingBuffer.getBuffer(), vertexBuffer->getBuffer(), bufferSize);
 }
@@ -51,22 +51,22 @@ void Mesh::createIndexBuffers(const std::vector<uint32_t>& indices) {
     uint32_t indexSize = sizeof(indices[0]);
 
     Buffer stagingBuffer {
-            device,
-            indexSize,
-            indexCount,
-            vk::BufferUsageFlagBits::eTransferSrc,
-            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+        device,
+        indexSize,
+        indexCount,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
     };
 
     stagingBuffer.map();
     stagingBuffer.writeToBuffer((void *)indices.data());
 
     indexBuffer = std::make_unique<Buffer>(
-            device,
-            indexSize,
-            indexCount,
-            vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-            vk::MemoryPropertyFlagBits::eDeviceLocal);
+        device,
+        indexSize,
+        indexCount,
+        vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        vk::MemoryPropertyFlagBits::eDeviceLocal);
 
     device.copyBuffer(stagingBuffer.getBuffer(), indexBuffer->getBuffer(), bufferSize);
 }
@@ -99,5 +99,6 @@ std::vector<vk::VertexInputAttributeDescription> Mesh::Vertex::getAttributeDescr
     return {
         {0, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, position)},
         {1, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, color)},
+        {2, 0, vk::Format::eR32G32Sfloat, offsetof(Vertex, texCoord)},
     };
 }
