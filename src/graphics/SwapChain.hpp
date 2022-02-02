@@ -2,6 +2,7 @@
 
 namespace Engine {
     class Device;
+
     class SwapChain {
     public:
         SwapChain(Device& device, vk::Extent2D windowExtent);
@@ -40,16 +41,17 @@ namespace Engine {
         vk::RenderPass renderPass;
 
         std::vector<vk::Image> swapChainImages;
-        std::vector<vk::Image> depthImages;
-        std::vector<vk::DeviceMemory> depthImageMemories;
-        std::vector<vk::ImageView> depthImageViews;
         std::vector<vk::ImageView> swapChainImageViews;
         std::vector<vk::Framebuffer> swapChainFramebuffers;
         std::vector<vk::Semaphore> imageAvailableSemaphores;
         std::vector<vk::Semaphore> renderFinishedSemaphores;
         std::vector<vk::Fence> inFlightFences;
-        //std::vector<vk::Fence*> imagesInFlight;
+        std::vector<vk::Fence*> imagesInFlight;
         uint32_t currentFrame = 0;
+
+        vk::Image depthImage;
+        vk::DeviceMemory depthImageMemory;
+        vk::ImageView depthImageView;
 
         std::shared_ptr<SwapChain> oldSwapChain;
 

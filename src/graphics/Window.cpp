@@ -8,6 +8,7 @@ Window::Window(std::string title, int width, int height) :
     height{height},
     aspect{static_cast<float>(width) / static_cast<float>(height)}
 {
+    assert(width > 0 && height > 0 && "width or height cannot be negative");
     static auto once = (glfwInit(), true);
     init();
 }
@@ -17,10 +18,6 @@ Window::~Window() {
 }
 
 void Window::init() {
-    if (width < 0 || height < 0) {
-        throw std::invalid_argument("width or height cannot be negative");
-    }
-
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 

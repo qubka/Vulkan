@@ -29,10 +29,7 @@ Texture::Texture(Device& device, std::string p) : device{device}, path{std::move
                        textureImage,
                        textureImageMemory);
 
-    device.transitionImageLayout(textureImage,
-                                 vk::Format::eR8G8B8A8Srgb,
-                                 vk::ImageLayout::eUndefined,
-                                 vk::ImageLayout::eTransferDstOptimal);
+    device.transitionImageLayout(textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
 
     device.copyBufferToImage(stagingBuffer.getBuffer(),
                              textureImage,
@@ -40,13 +37,14 @@ Texture::Texture(Device& device, std::string p) : device{device}, path{std::move
                              static_cast<uint32_t>(image.height),
                              1);
 
-    device.transitionImageLayout(textureImage,
-                                 vk::Format::eR8G8B8A8Srgb,
-                                 vk::ImageLayout::eTransferDstOptimal,
-                                 vk::ImageLayout::eShaderReadOnlyOptimal);
+    device.transitionImageLayout(textureImage, vk::Format::eR8G8B8A8Srgb, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal);
 }
 
 Texture::~Texture() {
-    device()->destroyImage(textureImage);
-    device()->freeMemory(textureImageMemory);
+    device().destroyImage(textureImage);
+    device().freeMemory(textureImageMemory);
+}
+
+const vk::Image& Texture::getImage() const {
+    return textureImage;
 }

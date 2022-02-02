@@ -12,5 +12,11 @@ namespace Engine {
     public:
         Texture(Device& device, std::string path);
         ~Texture();
+        Texture(Texture&&) = delete;
+        Texture(const Texture&) = delete;
+        Texture& operator=(Texture&&) = delete;
+        Texture& operator=(const Texture&) = delete;
+
+        const vk::Image& getImage() const;
     };
 }

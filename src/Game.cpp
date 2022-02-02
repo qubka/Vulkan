@@ -1,6 +1,7 @@
 #include "Game.hpp"
 #include "graphics/SimpleRenderSystem.hpp"
 #include "graphics/FrameInfo.hpp"
+#include "graphics/Renderer.hpp"
 #include "graphics/Buffer.hpp"
 
 using Engine::Game;
@@ -17,24 +18,12 @@ Game::~Game() {
 }
 
 void Game::run() {
-    /*std::vector<std::unique_ptr<Buffer>> uboBuffers;
-    uboBuffers.reserve(SwapChain::MAX_FRAMES_IN_FLIGHT);
-
-    for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
-        auto uboBuffer = std::make_unique<Buffer>(
-                device,
-                sizeof(GlobalUbo),
-                1,
-                vk::BufferUsageFlagBits::eUniformBuffer,
-                vk::MemoryPropertyFlagBits::eHostVisible);
-        uboBuffer->map();
-        uboBuffers.push_back(std::move(uboBuffer));
-    }*/
-
-    SimpleRenderSystem simpleRenderSystem{device, renderer.getSwapChainRenderPass()};
+    SimpleRenderSystem simpleRenderSystem{device, renderer};
 
     float currentTime = static_cast<float>(glfwGetTime());
     float previousTime = currentTime;
+
+    camera.setPosition(glm::vec3{0, 0, 5});
 
     while (!window.shouldClose()) {
         glfwPollEvents();
@@ -47,15 +36,27 @@ void Game::run() {
             window.shouldClose(true);
         }
 
+        if (input.getKeyDown(GLFW_KEY_TAB)) {
+            window.toggleCursor();
+        }
+
         camera.update(input, deltaTime);
 
         if (auto frameIndex = renderer.beginFrame(); frameIndex != std::numeric_limits<uint32_t>::max()) {
             renderer.beginSwapChainRenderPass(frameIndex);
 
+            // update
+            UniformBufferObject ubo{};
+            ubo.viewProj = camera.getViewProjection();
+            auto& uniform = renderer.getCurrentUniformBuffer();
+            uniform->writeToBuffer(&ubo);
+            uniform->flush();
+
             FrameInfo frameInfo{
                 frameIndex,
                 deltaTime,
                 renderer.getCurrentCommandBuffer(),
+                renderer.getCurrentDescriptorSet(),
                 camera,
                 registry
             };
@@ -69,7 +70,7 @@ void Game::run() {
         input.reset();
     }
 
-    device()->waitIdle();
+    device().waitIdle();
 }
 
 int main() {

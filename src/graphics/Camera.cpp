@@ -1,17 +1,20 @@
 #include "Camera.hpp"
 #include "Input.hpp"
 #include "Window.hpp"
+#include "../geometry/Ray.hpp"
 
 using Engine::Camera;
-//using Engine::Ray;
+using Engine::Ray;
 
-Camera::Camera(Window& window, float speed, float fov, float far, float near) :
+Camera::Camera(Window& window, float speed, float fov, float near, float far) :
     window{window},
     speed{speed},
     fov{fov},
-    far{far},
-    near{near}
+    near{near},
+    far{far}
 {
+    assert(far > near && "far cannot be less then near");
+    assert(speed >= 0.0f && "speed cannot be negative);
     updateViewMatrix();
 }
 
@@ -75,19 +78,13 @@ float Camera::getSpeed() const {
     return speed;
 }
 
+/// @link https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
+
 glm::vec3 Camera::forward() const {
 #ifdef GLFW_INCLUDE_VULKAN
     return rotation * vec3::forward;
 #else
     return rotation * vec3::back;
-#endif
-}
-
-glm::vec3 Camera::back() const {
-#ifdef GLFW_INCLUDE_VULKAN
-    return rotation * vec3::back;
-#else
-    return rotation * vec3::forward;
 #endif
 }
 
@@ -99,35 +96,23 @@ glm::vec3 Camera::up() const {
 #endif
 }
 
-glm::vec3 Camera::down() const {
-#ifdef GLFW_INCLUDE_VULKAN
-    return rotation * vec3::up;
-#else
-    return rotation * vec3::down;
-#endif
-}
-
 glm::vec3 Camera::right() const {
     return rotation * vec3::right;
 }
 
-glm::vec3 Camera::left() const {
-    return rotation * vec3::left;
-}
-
 void Camera::update(const Input& input, float deltaTime) {
-    float elapsedTime = 0.01f;
+
     if (input.getKey(GLFW_KEY_W)) {
-        position += rotation * vec3::forward * speed * deltaTime;
+        position += forward() * speed * deltaTime;
     }
     if (input.getKey(GLFW_KEY_S)) {
-        position -= rotation * vec3::forward * speed * deltaTime;
+        position -= forward() * speed * deltaTime;
     }
     if (input.getKey(GLFW_KEY_D)) {
-        position += rotation * vec3::right * speed * deltaTime;
+        position += right() * speed * deltaTime;
     }
     if (input.getKey(GLFW_KEY_A)) {
-        position -= rotation * vec3::right * speed * deltaTime;
+        position -= right() * speed * deltaTime;
     }
 
     if (window.isCursorLocked()) {
@@ -156,7 +141,7 @@ void Camera::updateViewMatrix() {
 }
 
 /// @link https://antongerdelan.net/opengl/raycasting.html
-/*Ray Camera::screenPointToRay(const glm::vec2& pos) const {
+Ray Camera::screenPointToRay(const glm::vec2& pos) const {
     float mouseX = 2 * pos.x / static_cast<float>(window.getWidth() - 1);
     float mouseY = 2 * pos.y / static_cast<float>(window.getHeight() - 1);
 #ifdef GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -174,6 +159,10 @@ void Camera::updateViewMatrix() {
 
 /// @link https://discourse.libcinder.org/t/screen-to-world-coordinates/1014/2
 glm::vec3 Camera::screenToWorldPoint(const glm::vec2& pos) const {
+#ifdef GLFW_INCLUDE_VULKAN
+    glm::vec4 viewport{0, 0, window.getWidth(), window.getHeight()};
+#else
     glm::vec4 viewport{0, window.getHeight(), window.getWidth(), -window.getHeight()}; // vertical flip is required
+#endif
     return glm::unProject(glm::vec3{pos, 0}, viewMatrix, projectionMatrix, viewport);
-}*/
+}

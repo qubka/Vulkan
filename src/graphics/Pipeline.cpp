@@ -10,26 +10,29 @@ Pipeline::Pipeline(Device& device, const std::string& vertPath, const std::strin
 }
 
 Pipeline::~Pipeline() {
+    device().destroyShaderModule(vertShaderModule);
+    device().destroyShaderModule(fragShaderModule);
+    device().destroyPipeline(graphicsPipeline);
 }
 
 void Pipeline::createGraphicsPipeline(const std::string& vertPath, const std::string& fragPath, const PipelineConfigInfo& configInfo) {
     auto vertShaderCode = readFile(vertPath);
     auto fragShaderCode = readFile(fragPath);
 
-    auto vertShaderModule = createShaderModule(vertShaderCode);
-    auto fragShaderModule = createShaderModule(fragShaderCode);
+    vertShaderModule = createShaderModule(vertShaderCode);
+    fragShaderModule = createShaderModule(fragShaderCode);
 
     vk::PipelineShaderStageCreateInfo shaderStages[] = {
         {
             vk::PipelineShaderStageCreateFlags(),
             vk::ShaderStageFlagBits::eVertex,
-            *vertShaderModule,
+            vertShaderModule,
             "main"
         },
         {
             vk::PipelineShaderStageCreateFlags(),
             vk::ShaderStageFlagBits::eFragment,
-            *fragShaderModule,
+            fragShaderModule,
             "main"
         }
     };
@@ -52,21 +55,22 @@ void Pipeline::createGraphicsPipeline(const std::string& vertPath, const std::st
     pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;
     pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;
     pipelineInfo.pDynamicState = &configInfo.dynamicStateInfo;
+    pipelineInfo.pDepthStencilState = &configInfo.depthStencilInfo;
     pipelineInfo.layout = configInfo.pipelineLayout;
     pipelineInfo.renderPass = configInfo.renderPass;
     pipelineInfo.subpass = configInfo.subpass;
     pipelineInfo.basePipelineHandle = nullptr;
 
-    auto pipeline = device()->createGraphicsPipelineUnique(nullptr, pipelineInfo);
+    auto pipeline = device().createGraphicsPipeline(nullptr, pipelineInfo);
     if (pipeline.result != vk::Result::eSuccess) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
-    graphicsPipeline = std::move(pipeline.value);
+    graphicsPipeline = pipeline.value;
 }
 
-vk::UniqueShaderModule Pipeline::createShaderModule(const std::vector<char>& code) {
+vk::ShaderModule Pipeline::createShaderModule(const std::vector<char>& code) {
     try {
-        return device()->createShaderModuleUnique({
+        return device().createShaderModule({
             vk::ShaderModuleCreateFlags(),
             code.size(),
             reinterpret_cast<const uint32_t*>(code.data())
@@ -95,7 +99,7 @@ std::vector<char> Pipeline::readFile(const std::string& path) {
 }
 
 void Pipeline::bind(const vk::CommandBuffer& commandBuffer) const {
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline);
 }
 
 void Pipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) {
@@ -111,9 +115,15 @@ void Pipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) {
     configInfo.rasterizationInfo.rasterizerDiscardEnable = VK_FALSE;
     configInfo.rasterizationInfo.polygonMode = vk::PolygonMode::eFill;
     configInfo.rasterizationInfo.lineWidth = 1.0f;
-    configInfo.rasterizationInfo.cullMode = vk::CullModeFlagBits::eBack;
+    configInfo.rasterizationInfo.cullMode = vk::CullModeFlagBits::eNone;
     configInfo.rasterizationInfo.frontFace = vk::FrontFace::eClockwise;
     configInfo.rasterizationInfo.depthBiasEnable = VK_FALSE;
+
+    configInfo.depthStencilInfo.depthTestEnable = VK_TRUE;
+    configInfo.depthStencilInfo.depthWriteEnable = VK_TRUE;
+    configInfo.depthStencilInfo.depthCompareOp = vk::CompareOp::eLess;
+    configInfo.depthStencilInfo.depthBoundsTestEnable = VK_FALSE;
+    configInfo.depthStencilInfo.stencilTestEnable = VK_FALSE;
 
     configInfo.multisampleInfo.sampleShadingEnable = VK_FALSE;
     configInfo.multisampleInfo.rasterizationSamples = vk::SampleCountFlagBits::e1;

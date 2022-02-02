@@ -8,11 +8,11 @@ layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
 
 layout(binding = 0) uniform Ubo {
-    mat4 model;
+    mat4 viewProj;
 } ubo;
 
 void main() {
-    gl_Position = vec4(position, 1.0);
+    gl_Position = ubo.viewProj * vec4(position, 1.0);
     fragColor = color;
     fragTexCoord = uv;
 }

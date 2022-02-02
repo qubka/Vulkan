@@ -37,9 +37,16 @@ Device::Device(const Window& window) {
 }
 
 Device::~Device() {
+    instance.destroySurfaceKHR(surface);
+
     if (enableValidationLayers) {
-        DestroyDebugUtilsMessengerEXT(*instance, callback, nullptr);
+        DestroyDebugUtilsMessengerEXT(instance, callback, nullptr);
     }
+
+    device.destroyCommandPool(commandPool);
+
+    device.destroy();
+    instance.destroy();
 }
 
 void Device::createInstance() {
@@ -57,26 +64,26 @@ void Device::createInstance() {
 
     version = VK_MAKE_VERSION(1, 0, 0);
 
-    auto appInfo = vk::ApplicationInfo(
-        "VulkanEngine App",
-        version,
-        "No Engine",
-        version,
-        VK_API_VERSION_1_0
-    );
+    auto appInfo = vk::ApplicationInfo{
+            "VulkanEngine App",
+            version,
+            "No Engine",
+            version,
+            VK_API_VERSION_1_0
+    };
 
     hasGflwRequiredInstanceExtensions();
 
     auto extensions = getRequiredExtensions();
 
-    auto createInfo = vk::InstanceCreateInfo(
-        vk::InstanceCreateFlags(),
-        &appInfo,
-        0,
-        nullptr,
-        static_cast<uint32_t>(extensions.size()),
-        extensions.data()
-    );
+    auto createInfo = vk::InstanceCreateInfo{
+            vk::InstanceCreateFlags(),
+            &appInfo,
+            0,
+            nullptr,
+            static_cast<uint32_t>(extensions.size()),
+            extensions.data()
+    };
 
     if (enableValidationLayers) {
         createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
@@ -84,10 +91,12 @@ void Device::createInstance() {
     }
 
     try {
-        instance = vk::createInstanceUnique(createInfo, nullptr);
+        instance = vk::createInstance(createInfo, nullptr);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create vulkan!");
     }
+
+    std::cout << std::endl;
 }
 
 std::vector<const char*> Device::getRequiredExtensions() const {
@@ -168,19 +177,17 @@ void Device::setupDebugMessenger() {
     );
 
     // NOTE: Vulkan-hpp has methods for this, but they trigger linking errors...
-    //instance->createDebugUtilsMessengerEXT(createInfo);
+    //instance.createDebugUtilsMessengerEXT(createInfo);
     //instance->createDebugUtilsMessengerEXTUnique(createInfo, nullptr, dldi);
 
-    //callback = instance->createDebugUtilsMessengerEXTUnique(createInfo, nullptr, dldi);
-
     // NOTE: reinterpret_cast is also used by vulkan.hpp internally for all these structs
-    if (CreateDebugUtilsMessengerEXT(*instance, reinterpret_cast<const VkDebugUtilsMessengerCreateInfoEXT*>(&createInfo), nullptr, &callback) != VK_SUCCESS) {
+    if (CreateDebugUtilsMessengerEXT(instance, reinterpret_cast<const VkDebugUtilsMessengerCreateInfoEXT*>(&createInfo), nullptr, &callback) != VK_SUCCESS) {
         throw std::runtime_error("failed to set up debug callback!");
     }
 }
 
 void Device::pickPhysicalDevice() {
-    auto devices = instance->enumeratePhysicalDevices();
+    auto devices = instance.enumeratePhysicalDevices();
     if (devices.empty()) {
         throw std::runtime_error("failed to find GPUs with Vulkan support!");
     }
@@ -196,8 +203,7 @@ void Device::pickPhysicalDevice() {
         throw std::runtime_error("failed to find a suitable GPU!");
     }
 
-    vk::PhysicalDeviceProperties properties{physicalDevice.getProperties()};
-    std::cout << "physical device: " << properties.deviceName << std::endl;
+    std::cout << "physical device: " << physicalDevice.getProperties().deviceName << std::endl;
 }
 
 bool Device::isDeviceSuitable(const vk::PhysicalDevice& device) const {
@@ -233,7 +239,7 @@ QueueFamilyIndices Device::findQueueFamilies(const vk::PhysicalDevice& device) c
             indices.graphicsFamily = i;
         }
 
-        if (queueFamily.queueCount > 0 && device.getSurfaceSupportKHR(i, *surface)) {
+        if (queueFamily.queueCount > 0 && device.getSurfaceSupportKHR(i, surface)) {
             indices.presentFamily = i;
         }
 
@@ -280,32 +286,32 @@ void Device::createLogicalDevice() {
     }
 
     try {
-        device = physicalDevice.createDeviceUnique(createInfo);
+        device = physicalDevice.createDevice(createInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create logical device!");
     }
 
-    graphicsQueue = device->getQueue(indices.graphicsFamily.value(), 0);
-    presentQueue = device->getQueue(indices.presentFamily.value(), 0);
+    graphicsQueue = device.getQueue(indices.graphicsFamily.value(), 0);
+    presentQueue = device.getQueue(indices.presentFamily.value(), 0);
 }
 
 void Device::createSurface(const Window& window) {
     VkSurfaceKHR raw;
-    if (glfwCreateWindowSurface(*instance, window, nullptr, &raw) != VK_SUCCESS) {
+    if (glfwCreateWindowSurface(instance, window, nullptr, &raw) != VK_SUCCESS) {
         throw std::runtime_error("failed to create window surface!");
     }
-    surface = vk::UniqueSurfaceKHR(raw, *instance);
+    surface = raw;
 }
 
-const vk::UniqueDevice& Engine::Device::operator()() const {
+const vk::Device& Device::operator()() const {
     return device;
 }
 
-const vk::UniqueDevice& Device::getDevice() const {
+const vk::Device& Device::getDevice() const {
     return device;
 }
 
-const vk::UniqueSurfaceKHR& Device::getSurface() const {
+const vk::SurfaceKHR& Device::getSurface() const {
     return surface;
 }
 
@@ -321,15 +327,15 @@ const vk::PhysicalDevice& Device::getPhysicalDevice() const {
     return physicalDevice;
 }
 
-const vk::UniqueCommandPool& Device::getCommandPool() const {
+const vk::CommandPool& Device::getCommandPool() const {
     return commandPool;
 }
 
 SwapChainSupportDetails Device::querySwapChainSupport(const vk::PhysicalDevice& device) const {
     SwapChainSupportDetails details;
-    details.capabilities = device.getSurfaceCapabilitiesKHR(*surface);
-    details.formats = device.getSurfaceFormatsKHR(*surface);
-    details.presentModes = device.getSurfacePresentModesKHR(*surface);
+    details.capabilities = device.getSurfaceCapabilitiesKHR(surface);
+    details.formats = device.getSurfaceFormatsKHR(surface);
+    details.presentModes = device.getSurfacePresentModesKHR(surface);
     return details;
 }
 
@@ -349,7 +355,7 @@ void Device::createCommandPool() {
     poolInfo.flags = vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 
     try {
-        commandPool = device->createCommandPoolUnique(poolInfo);
+        commandPool = device.createCommandPool(poolInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create command pool!");
     }
@@ -357,8 +363,7 @@ void Device::createCommandPool() {
 
 vk::Format Device::findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const {
     for (const auto& format : candidates) {
-        vk::FormatProperties props;
-        physicalDevice.getFormatProperties(format, &props);
+        vk::FormatProperties props = physicalDevice.getFormatProperties(format);
 
         if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features ||
             tiling == vk::ImageTiling::eOptimal && (props.optimalTilingFeatures & features) == features) {
@@ -388,24 +393,24 @@ void Device::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::M
     bufferInfo.sharingMode = vk::SharingMode::eExclusive;
 
     try {
-        buffer = device->createBuffer(bufferInfo);
+        buffer = device.createBuffer(bufferInfo);
     }catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create buffer!");
     }
 
-    vk::MemoryRequirements memRequirements = device->getBufferMemoryRequirements(buffer);
+    vk::MemoryRequirements memRequirements = device.getBufferMemoryRequirements(buffer);
 
     vk::MemoryAllocateInfo allocInfo{};
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
     try {
-        bufferMemory = device->allocateMemory(allocInfo);
+        bufferMemory = device.allocateMemory(allocInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to allocate buffer memory!");
     }
 
-    device->bindBufferMemory(buffer, bufferMemory, 0);
+    device.bindBufferMemory(buffer, bufferMemory, 0);
 }
 
 void Device::copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size) const {
@@ -444,10 +449,10 @@ void Device::copyBufferToImage(const vk::Buffer& buffer, const vk::Image& image,
 vk::CommandBuffer Device::beginSingleTimeCommands() const {
     vk::CommandBufferAllocateInfo allocInfo{};
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
-    allocInfo.commandPool = *commandPool;
+    allocInfo.commandPool = commandPool;
     allocInfo.commandBufferCount = 1;
 
-    vk::CommandBuffer commandBuffer = device->allocateCommandBuffers(allocInfo)[0];
+    vk::CommandBuffer commandBuffer = device.allocateCommandBuffers(allocInfo)[0];
 
     vk::CommandBufferBeginInfo beginInfo{};
     beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
@@ -467,10 +472,10 @@ void Device::endSingleTimeCommands(const vk::CommandBuffer& commandBuffer) const
     graphicsQueue.submit(submitInfo, nullptr);
     graphicsQueue.waitIdle();
 
-    device->freeCommandBuffers(*commandPool, commandBuffer);
+    device.freeCommandBuffers(commandPool, commandBuffer);
 }
 
-void Engine::Device::transitionImageLayout(const vk::Image& image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout) const {
+void Device::transitionImageLayout(const vk::Image& image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout) const {
     vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
 
     vk::ImageMemoryBarrier barrier{};
@@ -479,7 +484,6 @@ void Engine::Device::transitionImageLayout(const vk::Image& image, vk::Format fo
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = image;
-    barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
     barrier.subresourceRange.baseMipLevel = 0;
     barrier.subresourceRange.levelCount = 1;
     barrier.subresourceRange.baseArrayLayer = 0;
@@ -487,6 +491,16 @@ void Engine::Device::transitionImageLayout(const vk::Image& image, vk::Format fo
 
     vk::PipelineStageFlagBits sourceStage;
     vk::PipelineStageFlagBits destinationStage;
+
+    if (newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+        barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+
+        if (hasStencilComponent(format)) {
+            barrier.subresourceRange.aspectMask |= vk::ImageAspectFlagBits::eStencil;
+        }
+    } else {
+        barrier.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+    }
 
     if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eTransferDstOptimal) {
         barrier.srcAccessMask = vk::AccessFlagBits::eNoneKHR;
@@ -501,6 +515,13 @@ void Engine::Device::transitionImageLayout(const vk::Image& image, vk::Format fo
 
         sourceStage = vk::PipelineStageFlagBits::eTransfer;
         destinationStage = vk::PipelineStageFlagBits::eFragmentShader;
+
+    } else if (oldLayout == vk::ImageLayout::eUndefined && newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+        barrier.srcAccessMask = vk::AccessFlagBits::eNoneKHR;
+        barrier.dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+
+        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+        destinationStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
 
     } else {
         throw std::invalid_argument("unsupported layout transition!");
@@ -532,22 +553,48 @@ void Device::createImage(uint32_t width, uint32_t height, vk::Format format, vk:
     imageInfo.sharingMode = vk::SharingMode::eExclusive;
 
     try {
-        image = device->createImage(imageInfo);
+        image = device.createImage(imageInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create image!");
     }
 
-    vk::MemoryRequirements memRequirements = device->getImageMemoryRequirements(image);
+    vk::MemoryRequirements memRequirements = device.getImageMemoryRequirements(image);
 
     vk::MemoryAllocateInfo allocInfo{};
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
     try {
-        imageMemory = device->allocateMemory(allocInfo);
+        imageMemory = device.allocateMemory(allocInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to allocate image memory!");
     }
 
-    device->bindImageMemory(image, imageMemory, 0);
+    device.bindImageMemory(image, imageMemory, 0);
+}
+
+vk::ImageView Device::createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags) const {
+    vk::ImageViewCreateInfo createInfo{};
+    createInfo.image = image;
+    createInfo.viewType = vk::ImageViewType::e2D;
+    createInfo.format = format;
+    createInfo.components.r = vk::ComponentSwizzle::eIdentity;
+    createInfo.components.g = vk::ComponentSwizzle::eIdentity;
+    createInfo.components.b = vk::ComponentSwizzle::eIdentity;
+    createInfo.components.a = vk::ComponentSwizzle::eIdentity;
+    createInfo.subresourceRange.aspectMask = aspectFlags;
+    createInfo.subresourceRange.baseMipLevel = 0;
+    createInfo.subresourceRange.levelCount = 1;
+    createInfo.subresourceRange.baseArrayLayer = 0;
+    createInfo.subresourceRange.layerCount = 1;
+
+    try {
+        return device.createImageView(createInfo);
+    } catch (vk::SystemError& err) {
+        throw std::runtime_error("failed to create image views!");
+    }
+}
+
+bool Device::hasStencilComponent(vk::Format format) {
+    return format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint;
 }

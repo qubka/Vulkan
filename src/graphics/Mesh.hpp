@@ -3,6 +3,7 @@
 namespace Engine {
     class Device;
     class Buffer;
+
     class Mesh {
     public:
         struct Vertex {

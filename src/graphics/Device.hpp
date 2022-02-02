@@ -17,6 +17,7 @@ namespace Engine {
     };
 
     class Window;
+
     class Device {
 #ifdef NDEBUG
         const bool enableValidationLayers = false;
@@ -31,13 +32,14 @@ namespace Engine {
         Device& operator=(const Device&) = delete;
         Device& operator=(Device&&) = delete;
 
-        const vk::UniqueDevice& operator()() const;
-        const vk::UniqueDevice& getDevice() const;
+        const vk::Device& operator()() const;
+        const vk::Device& getDevice() const;
         const vk::PhysicalDevice& getPhysicalDevice() const;
-        const vk::UniqueSurfaceKHR& getSurface() const;
+        const vk::SurfaceKHR& getSurface() const;
         const vk::Queue& getGraphicsQueue() const;
         const vk::Queue& getPresentQueue() const;
-        const vk::UniqueCommandPool& getCommandPool() const;
+        const vk::CommandPool& getCommandPool() const;
+        const vk::PhysicalDeviceProperties& getProperties() const;
 
         SwapChainSupportDetails getSwapChainSupport() const;
         QueueFamilyIndices findPhysicalQueueFamilies() const;
@@ -48,6 +50,7 @@ namespace Engine {
         void copyBufferToImage(const vk::Buffer& buffer, const vk::Image& image, uint32_t width, uint32_t height, uint32_t layerCount) const;
         void createImage(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Image& image, vk::DeviceMemory& imageMemory) const;
         void transitionImageLayout(const vk::Image& image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout) const;
+        vk::ImageView createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags) const;
 
     private:
         void createInstance();
@@ -69,15 +72,17 @@ namespace Engine {
         void endSingleTimeCommands(const vk::CommandBuffer& commandBuffer) const;
         uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties) const;
 
-        vk::UniqueInstance instance;
+        static bool hasStencilComponent(vk::Format format) ;
+
+        vk::Instance instance;
         vk::PhysicalDevice physicalDevice;
-        vk::UniqueDevice device;
+        vk::Device device;
         vk::Queue graphicsQueue;
         vk::Queue presentQueue;
-        vk::UniqueSurfaceKHR surface;
-        vk::UniqueCommandPool commandPool;
+        vk::SurfaceKHR surface;
+        vk::CommandPool commandPool;
 
-        VkDebugUtilsMessengerEXT callback;
+        VkDebugUtilsMessengerEXT callback{nullptr};
 
         const std::vector<const char*> validationLayers = {"VK_LAYER_KHRONOS_validation"};
         const std::vector<const char*> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};

@@ -4,6 +4,13 @@ namespace Engine {
     class Device;
 
     struct PipelineConfigInfo {
+        PipelineConfigInfo() = default;
+        ~PipelineConfigInfo() = default;
+        PipelineConfigInfo(const PipelineConfigInfo&) = delete;
+        PipelineConfigInfo(PipelineConfigInfo&&) = delete;
+        PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
+        PipelineConfigInfo& operator=(PipelineConfigInfo&&) = delete;
+
         std::vector<vk::VertexInputBindingDescription> bindingDescriptions{};
         std::vector<vk::VertexInputAttributeDescription> attributeDescriptions{};
         vk::PipelineViewportStateCreateInfo viewportInfo{};
@@ -37,9 +44,11 @@ namespace Engine {
         static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
     private:
         Device& device;
-        vk::UniquePipeline graphicsPipeline;
+        vk::ShaderModule vertShaderModule;
+        vk::ShaderModule fragShaderModule;
+        vk::Pipeline graphicsPipeline;
 
-        vk::UniqueShaderModule createShaderModule(const std::vector<char>& code);
+        vk::ShaderModule createShaderModule(const std::vector<char>& code);
         void createGraphicsPipeline(const std::string& vertPath, const std::string& fragPath, const PipelineConfigInfo& configInfo);
 
         static std::vector<char> readFile(const std::string& path);

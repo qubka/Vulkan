@@ -3,34 +3,179 @@
 #include "Device.hpp"
 #include "SwapChain.hpp"
 #include "Pipeline.hpp"
+#include "Buffer.hpp"
+#include "Texture.hpp"
 
 using Engine::Renderer;
+using Engine::Buffer;
 
 Renderer::Renderer(Window& window, Device& device) : window{window}, device{device} {
     recreateSwapChain();
     createCommandBuffers();
+    createTextureSampler();
+    createDescriptorSetLayout();
+    createUniformBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
 }
 
 Renderer::~Renderer() {
-    freeCommandBuffers();
+    device().destroySampler(textureSampler);
+    device().destroyImageView(textureImageView);
+    device().destroyDescriptorSetLayout(descriptorSetLayout);
+    //device().freeDescriptorSets(descriptorPool, descriptorSets);
+    device().destroyDescriptorPool(descriptorPool);
+    device().freeCommandBuffers(device.getCommandPool(), commandBuffers);
 }
 
 void Renderer::createCommandBuffers() {
     vk::CommandBufferAllocateInfo allocInfo{};
-    allocInfo.commandPool = *device.getCommandPool();
+    allocInfo.commandPool = device.getCommandPool();
     allocInfo.level = vk::CommandBufferLevel::ePrimary;
-    allocInfo.commandBufferCount = SwapChain::MAX_FRAMES_IN_FLIGHT;
+    allocInfo.commandBufferCount = static_cast<uint32_t>(swapChain->imageCount());
 
     try {
-        commandBuffers = device()->allocateCommandBuffers(allocInfo);
+        commandBuffers = device().allocateCommandBuffers(allocInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to allocate command buffers!");
     }
 }
 
-void Renderer::freeCommandBuffers() {
-    device()->freeCommandBuffers(*device.getCommandPool(), commandBuffers);
-    commandBuffers.clear();
+void Renderer::createTextureSampler() {
+    texture = std::make_unique<Texture>(device, "textures/texture.jpg");
+    textureImageView = device.createImageView(texture->getImage(), vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor);
+
+    vk::PhysicalDeviceProperties properties = device.getPhysicalDevice().getProperties();
+
+    vk::SamplerCreateInfo samplerInfo{};
+    samplerInfo.magFilter = vk::Filter::eLinear;
+    samplerInfo.minFilter = vk::Filter::eLinear;
+    samplerInfo.addressModeU = vk::SamplerAddressMode::eRepeat;
+    samplerInfo.addressModeV = vk::SamplerAddressMode::eRepeat;
+    samplerInfo.addressModeW = vk::SamplerAddressMode::eRepeat;
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+    samplerInfo.borderColor = vk::BorderColor::eIntOpaqueBlack;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = vk::CompareOp::eAlways;
+    samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+
+    try {
+        textureSampler = device().createSampler(samplerInfo);
+    } catch (vk::SystemError& err) {
+        throw std::runtime_error("failed to create texture sampler!");
+    }
+}
+
+void Renderer::createDescriptorSetLayout() {
+    vk::DescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.descriptorType = vk::DescriptorType::eUniformBuffer;
+    uboLayoutBinding.pImmutableSamplers = nullptr;
+    uboLayoutBinding.stageFlags = vk::ShaderStageFlagBits::eVertex;
+
+    vk::DescriptorSetLayoutBinding samplerLayoutBinding{};
+    samplerLayoutBinding.binding = 1;
+    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.descriptorType = vk::DescriptorType::eCombinedImageSampler;
+    samplerLayoutBinding.pImmutableSamplers = nullptr;
+    samplerLayoutBinding.stageFlags = vk::ShaderStageFlagBits::eFragment;
+
+    std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
+
+    vk::DescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+    try {
+        descriptorSetLayout = device().createDescriptorSetLayout(layoutInfo);
+    } catch (vk::SystemError& err) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
+}
+
+void Renderer::createUniformBuffers() {
+    vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
+
+    uniformBuffers.reserve(swapChain->imageCount());
+
+    for (int i = 0; i < static_cast<uint32_t>(swapChain->imageCount()); i++) {
+        auto uboBuffer = std::make_unique<Buffer>(
+            device,
+            bufferSize,
+            1,
+            vk::BufferUsageFlagBits::eUniformBuffer,
+            vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent
+        );
+
+        uboBuffer->map();
+        uniformBuffers.push_back(std::move(uboBuffer));
+    }
+}
+
+void Renderer::createDescriptorPool() {
+    auto imageCount = static_cast<uint32_t>(swapChain->imageCount());
+
+    std::array<vk::DescriptorPoolSize, 2> poolSizes{};
+    poolSizes[0].type = vk::DescriptorType::eUniformBuffer;
+    poolSizes[0].descriptorCount = imageCount;
+    poolSizes[1].type = vk::DescriptorType::eCombinedImageSampler;
+    poolSizes[1].descriptorCount = imageCount;
+
+    vk::DescriptorPoolCreateInfo poolInfo{};
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
+    poolInfo.maxSets = imageCount;
+
+    try {
+        descriptorPool = device().createDescriptorPool(poolInfo);
+    } catch (vk::SystemError& err) {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
+}
+
+void Renderer::createDescriptorSets() {
+    std::vector<vk::DescriptorSetLayout> layouts(swapChain->imageCount(), descriptorSetLayout);
+    vk::DescriptorSetAllocateInfo allocInfo{};
+    allocInfo.descriptorPool = descriptorPool;
+    allocInfo.descriptorSetCount = layouts.size(); //?
+    allocInfo.pSetLayouts = layouts.data();
+
+    try {
+        descriptorSets = device().allocateDescriptorSets(allocInfo);
+    } catch (vk::SystemError& err) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    for (size_t i = 0; i < uniformBuffers.size(); i++) {
+        vk::DescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = uniformBuffers[i]->getBuffer();
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(UniformBufferObject);
+
+        vk::DescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        imageInfo.imageView = textureImageView;
+        imageInfo.sampler = textureSampler;
+
+        std::array<vk::WriteDescriptorSet, 2> descriptorWrites{};
+        descriptorWrites[0].dstSet = descriptorSets[i];
+        descriptorWrites[0].dstBinding = 0;
+        descriptorWrites[0].dstArrayElement = 0;
+        descriptorWrites[0].descriptorType = vk::DescriptorType::eUniformBuffer;
+        descriptorWrites[0].descriptorCount = 1;
+        descriptorWrites[0].pBufferInfo = &bufferInfo;
+        descriptorWrites[1].dstSet = descriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = vk::DescriptorType::eCombinedImageSampler;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pImageInfo = &imageInfo;
+
+        device().updateDescriptorSets(static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+    }
 }
 
 void Renderer::recreateSwapChain() {
@@ -40,7 +185,7 @@ void Renderer::recreateSwapChain() {
         glfwWaitEvents();
     }
 
-    device()->waitIdle();
+    device().waitIdle();
 
     if (swapChain == nullptr) {
         swapChain = std::make_unique<SwapChain>(device, extent);
@@ -96,9 +241,14 @@ void Renderer::beginSwapChainRenderPass(uint32_t frameIndex) {
     renderPassInfo.renderArea.offset = vk::Offset2D{ 0, 0 };
     renderPassInfo.renderArea.extent = extent;
 
-    vk::ClearValue clearColor = { std::array<float, 4>{ 0, 0, 0, 1 } };
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
+
+    std::array<vk::ClearValue, 2> clearValues{};
+    clearValues[0].color = std::array<float, 4>{ 0, 0, 0, 1 };
+    clearValues[1].depthStencil.depth = 1.0f;
+    clearValues[1].depthStencil.stencil = 0;
+
+    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+    renderPassInfo.pClearValues = clearValues.data();
 
     commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 
@@ -151,6 +301,10 @@ const vk::RenderPass& Renderer::getSwapChainRenderPass() const {
     return swapChain->getRenderPass();
 }
 
+const vk::DescriptorSetLayout& Renderer::getDescriptorSetLayout() const {
+    return descriptorSetLayout;
+}
+
 bool Renderer::isFrameInProgress() const {
     return isFrameStarted;
 }
@@ -158,6 +312,16 @@ bool Renderer::isFrameInProgress() const {
 vk::CommandBuffer& Renderer::getCurrentCommandBuffer() {
     assert(isFrameStarted && "Cannot get command buffer when frame not in progress");
     return commandBuffers[currentFrameIndex];
+}
+
+vk::DescriptorSet& Renderer::getCurrentDescriptorSet()  {
+    assert(isFrameStarted && "Cannot get descriptor set when frame not in progress");
+    return descriptorSets[currentFrameIndex];
+}
+
+std::unique_ptr<Buffer>& Renderer::getCurrentUniformBuffer() {
+    assert(isFrameStarted && "Cannot get uniform buffer set when frame not in progress");
+    return uniformBuffers[currentFrameIndex];
 }
 
 uint32_t Renderer::getFrameIndex() const {

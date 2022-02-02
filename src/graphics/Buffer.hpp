@@ -2,21 +2,22 @@
 
 namespace Engine {
     class Device;
+
     class Buffer {
     public:
         Buffer(Device& device,
-            vk::DeviceSize instanceSize,
-            uint32_t instanceCount,
-            vk::BufferUsageFlags usageFlags,
-            vk::MemoryPropertyFlags memoryPropertyFlags,
-            vk::DeviceSize minOffsetAlignment = 1);
+               vk::DeviceSize instanceSize,
+               uint32_t instanceCount,
+               vk::BufferUsageFlags usageFlags,
+               vk::MemoryPropertyFlags memoryPropertyFlags,
+               vk::DeviceSize minOffsetAlignment = 1);
         ~Buffer();
         Buffer(const Buffer&) = delete;
         Buffer(Buffer&&) = delete;
         Buffer& operator=(const Buffer&) = delete;
         Buffer& operator=(Buffer&&) = delete;
 
-        vk::Result map(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
+        void map(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
         void unmap();
 
         void writeToBuffer(void* data, vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
@@ -30,7 +31,8 @@ namespace Engine {
         vk::Result invalidateIndex(int index);
 
         vk::Buffer& getBuffer();
-        void* getMappedMemory() const;
+        void* getMappedMemory();
+
         uint32_t getInstanceCount() const;
         vk::DeviceSize getInstanceSize() const;
         vk::DeviceSize getAlignmentSize() const;

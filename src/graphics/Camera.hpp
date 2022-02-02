@@ -3,24 +3,22 @@
 namespace Engine {
     class Input;
     class Window;
+    class Ray;
 
     class Camera {
     public:
-        Camera(Window& window, float speed, float fov, float far, float near);
+        Camera(Window& window, float speed, float fov, float near, float far);
         ~Camera() = default;
-        /*Camera(const Camera&) = delete;
+        Camera(const Camera&) = delete;
         Camera(Camera&&) = delete;
         Camera& operator=(const Camera&) = delete;
-        Camera& operator=(Camera&&) = delete;*/
+        Camera& operator=(Camera&&) = delete;
 
         void update(const Input& input, float deltaTime);
 
         glm::vec3 forward() const;
-        glm::vec3 back() const ;
         glm::vec3 up() const;
-        glm::vec3 down() const;
         glm::vec3 right() const;
-        glm::vec3 left() const;
 
         const glm::mat4& getProjection() const;
         const glm::mat4& getView() const;
@@ -37,8 +35,8 @@ namespace Engine {
         void setRotation(const glm::quat& rot);
         void setPositionAndRotation(const glm::vec3& pos, const glm::quat& rot);
 
-        //Ray screenPointToRay(const glm::vec2& pos) const;
-        //glm::vec3 screenToWorldPoint(const glm::vec2& pos) const;
+        Ray screenPointToRay(const glm::vec2& pos) const;
+        glm::vec3 screenToWorldPoint(const glm::vec2& pos) const;
     private:
         glm::mat4 projectionMatrix{1};
         glm::mat4 viewMatrix{1};
