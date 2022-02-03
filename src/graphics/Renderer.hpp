@@ -4,11 +4,13 @@ namespace Engine {
     class Window;
     class Device;
     class SwapChain;
-    class Buffer;
+    class AllocatedBuffer;
     class Texture;
+    class Font;
 
     struct UniformBufferObject {
-        alignas(16) glm::mat4 viewProj;
+        alignas(16) glm::mat4 perspective;
+        alignas(16) glm::mat4 orthogonal;
     };
 
     class Renderer {
@@ -21,12 +23,12 @@ namespace Engine {
         Renderer& operator=(Renderer&&) = delete;
 
         const vk::RenderPass& getSwapChainRenderPass() const;
-        const vk::DescriptorSetLayout& getDescriptorSetLayout() const;
+        //const vk::DescriptorSetLayout& getDescriptorSetLayout() const;
 
         bool isFrameInProgress() const;
-        vk::DescriptorSet& getCurrentDescriptorSet();
+        //vk::DescriptorSet& getCurrentDescriptorSet();
         vk::CommandBuffer& getCurrentCommandBuffer();
-        std::unique_ptr<Buffer>& getCurrentUniformBuffer();
+        //std::unique_ptr<Buffer>& getCurrentUniformBuffer();
         uint32_t getFrameIndex() const;
 
         uint32_t beginFrame();
@@ -35,11 +37,12 @@ namespace Engine {
         void endFrame(uint32_t frameIndex);
 
     private:
+        //void createTextures();
         void createCommandBuffers();
-        void createDescriptorSetLayout();
-        void createDescriptorPool();
-        void createUniformBuffers();
-        void createDescriptorSets();
+        //void createDescriptorSetLayout();
+        //void createDescriptorPool();
+        //void createUniformBuffers();
+        //void createDescriptorSets();
         void createTextureSampler();
         void recreateSwapChain();
 
@@ -49,13 +52,14 @@ namespace Engine {
         std::unique_ptr<SwapChain> swapChain;
         std::vector<vk::CommandBuffer, std::allocator<vk::CommandBuffer>> commandBuffers;
         std::vector<vk::DescriptorSet, std::allocator<vk::DescriptorSet>> descriptorSets;
-        std::vector<std::unique_ptr<Buffer>> uniformBuffers;
-        vk::DescriptorSetLayout descriptorSetLayout;
-        vk::DescriptorPool descriptorPool;
+        //std::vector<std::unique_ptr<Buffer>> uniformBuffers;
+        //vk::DescriptorSetLayout descriptorSetLayout;
+        //vk::DescriptorPool descriptorPool;
 
-        vk::ImageView textureImageView;
-        vk::Sampler textureSampler;
-        std::unique_ptr<Texture> texture;
+        //vk::Sampler textureSampler;
+        //std::vector<std::shared_ptr<Texture>> textures;
+
+        //std::unique_ptr<Font> a12;
 
         uint32_t currentImageIndex{0};
         uint32_t currentFrameIndex{0};

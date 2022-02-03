@@ -7,11 +7,15 @@
 #include "graphics/Pipeline.hpp"
 #include "graphics/Renderer.hpp"
 #include "graphics/Camera.hpp"
+#include "graphics/Descriptors.hpp"
 
 #define WIDTH 1280
 #define HEIGHT 720
 
 namespace Engine {
+    class RendererSystemBase;
+    class ComponentSystemBase;
+
     class Game {
         Game();
         ~Game();
@@ -35,5 +39,12 @@ namespace Engine {
         Renderer renderer{window, device};
         Camera camera{window, 5.0f, 45.0f, 0.1f, 100.0f};
         entt::registry registry;
+
+        std::vector<std::unique_ptr<RendererSystemBase>> renders;
+        std::vector<std::unique_ptr<ComponentSystemBase>> systems;
+        std::vector<std::unique_ptr<AllocatedBuffer>> uboBuffers;
+        std::unique_ptr<DescriptorPool> globalPool;
+        std::unique_ptr<DescriptorSetLayout> globalSetLayout;
+        std::vector<vk::DescriptorSet> globalDescriptorSets;
     };
 }

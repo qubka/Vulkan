@@ -6,7 +6,6 @@ namespace Engine {
         int width;
         int height;
         int channels;
-        size_t size;
 
         Image(const std::string& path, int channels = 4, bool flip = true);
         ~Image();

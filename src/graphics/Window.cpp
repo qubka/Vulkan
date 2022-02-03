@@ -37,26 +37,6 @@ void Window::shouldClose(bool flag) const {
     glfwSetWindowShouldClose(window, flag);
 }
 
-Window::operator GLFWwindow*() const {
-    return window;
-}
-
-int Window::getWidth() const {
-    return width;
-}
-
-int Window::getHeight() const {
-    return height;
-}
-
-float Window::getAspect() const {
-    return aspect;
-}
-
-const std::string& Window::getTitle() const {
-    return title;
-}
-
 bool Window::wasResized() const {
     return resized;
 }
@@ -80,4 +60,12 @@ void Window::framebufferResizeCallback(GLFWwindow* window, int width, int height
     pWindow->height = height;
     pWindow->aspect = static_cast<float>(width) / static_cast<float>(height);
     pWindow->resized = true;
+}
+
+glm::vec4 Window::getViewport() const {
+#ifdef GLFW_INCLUDE_VULKAN
+    return {0, 0, width, height};
+#else // OPENGL
+    return {0, height, width, -height}; // vertical flip is required
+#endif
 }

@@ -14,28 +14,8 @@ Camera::Camera(Window& window, float speed, float fov, float near, float far) :
     far{far}
 {
     assert(far > near && "far cannot be less then near");
-    assert(speed >= 0.0f && "speed cannot be negative);
+    assert(speed >= 0.0f && "speed cannot be negative");
     updateViewMatrix();
-}
-
-const glm::mat4& Camera::getProjection() const {
-    return projectionMatrix;
-}
-
-const glm::mat4& Camera::getView() const {
-    return viewMatrix;
-}
-
-const glm::mat4& Camera::getViewProjection() const {
-    return viewProjectionMatrix;
-}
-
-const glm::vec3& Camera::getPosition() const {
-    return position;
-}
-
-const glm::quat& Camera::getRotation() const {
-    return rotation;
 }
 
 void Camera::setPosition(const glm::vec3& pos) {
@@ -52,30 +32,6 @@ void Camera::setPositionAndRotation(const glm::vec3 &pos, const glm::quat &rot) 
     position = pos;
     rotation = rot;
     updateViewMatrix();
-}
-
-float Camera::getYaw() const {
-    return yaw;
-}
-
-float Camera::getPitch() const {
-    return pitch;
-}
-
-float Camera::getFov() const {
-    return fov;
-}
-
-float Camera::getNear() const {
-    return near;
-}
-
-float Camera::getFar() const {
-    return far;
-}
-
-float Camera::getSpeed() const {
-    return speed;
 }
 
 /// @link https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
@@ -159,10 +115,5 @@ Ray Camera::screenPointToRay(const glm::vec2& pos) const {
 
 /// @link https://discourse.libcinder.org/t/screen-to-world-coordinates/1014/2
 glm::vec3 Camera::screenToWorldPoint(const glm::vec2& pos) const {
-#ifdef GLFW_INCLUDE_VULKAN
-    glm::vec4 viewport{0, 0, window.getWidth(), window.getHeight()};
-#else
-    glm::vec4 viewport{0, window.getHeight(), window.getWidth(), -window.getHeight()}; // vertical flip is required
-#endif
-    return glm::unProject(glm::vec3{pos, 0}, viewMatrix, projectionMatrix, viewport);
+    return glm::unProject(glm::vec3{pos, 0}, viewMatrix, projectionMatrix, window.getViewport());
 }

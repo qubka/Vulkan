@@ -1,8 +1,17 @@
 #include "Game.hpp"
-#include "graphics/SimpleRenderSystem.hpp"
-#include "graphics/FrameInfo.hpp"
+
+#include "renderers/RendererSystemBase.hpp"
+#include "renderers/MeshRenderer.hpp"
+
+#include "systems/ComponentSystemBase.hpp"
+#include "systems/TransformSystem.hpp"
+
 #include "graphics/Renderer.hpp"
-#include "graphics/Buffer.hpp"
+#include "graphics/AllocatedBuffer.hpp"
+#include "graphics/Mesh.hpp"
+
+#include "components/Transform.hpp"
+#include "components/Model.hpp"
 
 using Engine::Game;
 
@@ -11,6 +20,56 @@ Game::Game() {
 }
 
 void Game::init() {
+    globalPool = DescriptorPool::Builder(device)
+            .setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT)
+            .addPoolSize(vk::DescriptorType::eUniformBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT)
+            .build();
+
+    uboBuffers.reserve(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
+    for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        auto buffer = std::make_unique<AllocatedBuffer>(
+                device,
+                sizeof(UniformBufferObject),
+                1,
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+        buffer->map();
+        uboBuffers.push_back(std::move(buffer));
+    }
+
+    globalSetLayout = DescriptorSetLayout::Builder(device)
+            .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex)
+            .build();
+
+    globalDescriptorSets.reserve(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
+    for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        vk::DescriptorSet descriptorSet;
+        auto bufferInfo = uboBuffers[i]->descriptorInfo();
+        DescriptorWriter(*globalSetLayout, *globalPool)
+                .writeBuffer(0, bufferInfo)
+                .build(descriptorSet);
+        globalDescriptorSets.push_back(descriptorSet);
+    }
+
+    // Create renders
+    renders.push_back(std::make_unique<MeshRenderer>(device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()));
+
+    // Create systems
+    systems.push_back(std::make_unique<TransformSystem>());
+
+    Mesh::Builder meshBuilder{};
+    meshBuilder.loadModel("models/cube.obj");
+    auto mesh = std::make_shared<Mesh>(device, meshBuilder);
+
+    auto  entity = registry.create();
+    registry.emplace<Transform>(entity, glm::translate(glm::mat4{1}, glm::vec3{5,5,5}));
+    registry.emplace<Model>(entity, mesh);
+
+    entity = registry.create();
+    registry.emplace<Transform>(entity);
+    registry.emplace<Model>(entity, mesh);
 }
 
 Game::~Game() {
@@ -18,8 +77,6 @@ Game::~Game() {
 }
 
 void Game::run() {
-    SimpleRenderSystem simpleRenderSystem{device, renderer};
-
     float currentTime = static_cast<float>(glfwGetTime());
     float previousTime = currentTime;
 
@@ -42,26 +99,34 @@ void Game::run() {
 
         camera.update(input, deltaTime);
 
+        SceneInfo sceneInfo { deltaTime, camera, registry };
+        for (const auto& s : systems) {
+            s->update(sceneInfo);
+        }
+
         if (auto frameIndex = renderer.beginFrame(); frameIndex != std::numeric_limits<uint32_t>::max()) {
             renderer.beginSwapChainRenderPass(frameIndex);
 
             // update
             UniformBufferObject ubo{};
-            ubo.viewProj = camera.getViewProjection();
-            auto& uniform = renderer.getCurrentUniformBuffer();
-            uniform->writeToBuffer(&ubo);
-            uniform->flush();
+            ubo.perspective = camera.getViewProjection();
+            ubo.orthogonal = glm::ortho(0, window.getWidth(), 0, window.getHeight());
+            auto& buffer = uboBuffers[frameIndex];
+            buffer->writeToBuffer(&ubo);
+            buffer->flush();
 
             FrameInfo frameInfo{
                 frameIndex,
                 deltaTime,
                 renderer.getCurrentCommandBuffer(),
-                renderer.getCurrentDescriptorSet(),
+                globalDescriptorSets[frameIndex],
                 camera,
                 registry
             };
 
-            simpleRenderSystem.renderEntities(frameInfo);
+            for (const auto& r : renders) {
+                r->render(frameInfo);
+            }
 
             renderer.endSwapChainRenderPass(frameIndex);
             renderer.endFrame(frameIndex);
@@ -70,7 +135,7 @@ void Game::run() {
         input.reset();
     }
 
-    device().waitIdle();
+    device.getLogical().waitIdle();
 }
 
 int main() {

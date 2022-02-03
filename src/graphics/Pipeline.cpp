@@ -10,9 +10,9 @@ Pipeline::Pipeline(Device& device, const std::string& vertPath, const std::strin
 }
 
 Pipeline::~Pipeline() {
-    device().destroyShaderModule(vertShaderModule);
-    device().destroyShaderModule(fragShaderModule);
-    device().destroyPipeline(graphicsPipeline);
+    device.getLogical().destroyShaderModule(vertShaderModule);
+    device.getLogical().destroyShaderModule(fragShaderModule);
+    device.getLogical().destroyPipeline(graphicsPipeline);
 }
 
 void Pipeline::createGraphicsPipeline(const std::string& vertPath, const std::string& fragPath, const PipelineConfigInfo& configInfo) {
@@ -61,7 +61,7 @@ void Pipeline::createGraphicsPipeline(const std::string& vertPath, const std::st
     pipelineInfo.subpass = configInfo.subpass;
     pipelineInfo.basePipelineHandle = nullptr;
 
-    auto pipeline = device().createGraphicsPipeline(nullptr, pipelineInfo);
+    auto pipeline = device.getLogical().createGraphicsPipeline(nullptr, pipelineInfo);
     if (pipeline.result != vk::Result::eSuccess) {
         throw std::runtime_error("failed to create pipeline layout!");
     }
@@ -70,7 +70,7 @@ void Pipeline::createGraphicsPipeline(const std::string& vertPath, const std::st
 
 vk::ShaderModule Pipeline::createShaderModule(const std::vector<char>& code) {
     try {
-        return device().createShaderModule({
+        return device.getLogical().createShaderModule({
             vk::ShaderModuleCreateFlags(),
             code.size(),
             reinterpret_cast<const uint32_t*>(code.data())
@@ -115,7 +115,7 @@ void Pipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) {
     configInfo.rasterizationInfo.rasterizerDiscardEnable = VK_FALSE;
     configInfo.rasterizationInfo.polygonMode = vk::PolygonMode::eFill;
     configInfo.rasterizationInfo.lineWidth = 1.0f;
-    configInfo.rasterizationInfo.cullMode = vk::CullModeFlagBits::eNone;
+    configInfo.rasterizationInfo.cullMode = vk::CullModeFlagBits::eBack;
     configInfo.rasterizationInfo.frontFace = vk::FrontFace::eClockwise;
     configInfo.rasterizationInfo.depthBiasEnable = VK_FALSE;
 

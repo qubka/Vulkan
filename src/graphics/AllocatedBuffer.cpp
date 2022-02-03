@@ -1,9 +1,9 @@
-#include "Buffer.hpp"
+#include "AllocatedBuffer.hpp"
 #include "Device.hpp"
 
-using Engine::Buffer;
+using Engine::AllocatedBuffer;
 
-Buffer::Buffer(
+AllocatedBuffer::AllocatedBuffer(
         Device& device,
         vk::DeviceSize instanceSize,
         uint32_t instanceCount,
@@ -20,42 +20,10 @@ Buffer::Buffer(
     device.createBuffer(bufferSize, usageFlags, memoryPropertyFlags, buffer, memory);
 }
 
-Buffer::~Buffer() {
+AllocatedBuffer::~AllocatedBuffer() {
     unmap();
-    device().destroyBuffer(buffer);
-    device().freeMemory(memory);
-}
-
-vk::Buffer& Buffer::getBuffer() {
-    return buffer;
-}
-
-void* Buffer::getMappedMemory() {
-    return mapped;
-}
-
-uint32_t Buffer::getInstanceCount() const {
-    return instanceCount;
-}
-
-vk::DeviceSize Buffer::getInstanceSize() const {
-    return instanceSize;
-}
-
-vk::DeviceSize Buffer::getAlignmentSize() const {
-    return alignmentSize;
-}
-
-vk::BufferUsageFlags Buffer::getUsageFlags() const {
-    return usageFlags;
-}
-
-vk::MemoryPropertyFlags Buffer::getMemoryPropertyFlags() const {
-    return memoryPropertyFlags;
-}
-
-vk::DeviceSize Buffer::getBufferSize() const {
-    return bufferSize;
+    device.getLogical().destroyBuffer(buffer);
+    device.getLogical().freeMemory(memory);
 }
 
 /**
@@ -67,9 +35,9 @@ vk::DeviceSize Buffer::getBufferSize() const {
  *
  * @return VkResult of the buffer mapping call
  */
-void Buffer::map(VkDeviceSize size, VkDeviceSize offset) {
+void AllocatedBuffer::map(VkDeviceSize size, VkDeviceSize offset) {
     assert(buffer && memory && "Called map on buffer before create");
-    auto result = device().mapMemory(memory, offset, size, vk::MemoryMapFlagBits(), &mapped);
+    auto result = device.getLogical().mapMemory(memory, offset, size, vk::MemoryMapFlagBits(), &mapped);
     if (result != vk::Result::eSuccess) {
         throw std::runtime_error("failed to map memory on the device!");
     }
@@ -80,9 +48,9 @@ void Buffer::map(VkDeviceSize size, VkDeviceSize offset) {
  *
  * @note Does not return a result as vkUnmapMemory can't fail
  */
-void Buffer::unmap() {
+void AllocatedBuffer::unmap() {
     if (mapped) {
-        device().unmapMemory(memory);
+        device.getLogical().unmapMemory(memory);
         mapped = nullptr;
     }
 }
@@ -96,7 +64,7 @@ void Buffer::unmap() {
  * @param offset (Optional) Byte offset from beginning of mapped region
  *
  */
-void Buffer::writeToBuffer(void *data, vk::DeviceSize size, vk::DeviceSize offset) {
+void AllocatedBuffer::writeToBuffer(void *data, vk::DeviceSize size, vk::DeviceSize offset) {
     assert(mapped && "Cannot copy to unmapped buffer");
 
     if (size == VK_WHOLE_SIZE) {
@@ -119,9 +87,9 @@ void Buffer::writeToBuffer(void *data, vk::DeviceSize size, vk::DeviceSize offse
  *
  * @return VkResult of the flush call
  */
-vk::Result Buffer::flush(vk::DeviceSize size, vk::DeviceSize offset) {
+vk::Result AllocatedBuffer::flush(vk::DeviceSize size, vk::DeviceSize offset) {
     vk::MappedMemoryRange mappedRange{ memory, offset, size };
-    return device().flushMappedMemoryRanges(1, &mappedRange);
+    return device.getLogical().flushMappedMemoryRanges(1, &mappedRange);
 }
 
 /**
@@ -135,9 +103,9 @@ vk::Result Buffer::flush(vk::DeviceSize size, vk::DeviceSize offset) {
  *
  * @return VkResult of the invalidate call
  */
-vk::Result Buffer::invalidate(vk::DeviceSize size, vk::DeviceSize offset) {
+vk::Result AllocatedBuffer::invalidate(vk::DeviceSize size, vk::DeviceSize offset) {
     vk::MappedMemoryRange mappedRange{ memory, offset, size };
-    return device().invalidateMappedMemoryRanges(1, &mappedRange);
+    return device.getLogical().invalidateMappedMemoryRanges(1, &mappedRange);
 }
 
 /**
@@ -148,7 +116,7 @@ vk::Result Buffer::invalidate(vk::DeviceSize size, vk::DeviceSize offset) {
  *
  * @return VkDescriptorBufferInfo of specified offset and range
  */
-vk::DescriptorBufferInfo Buffer::descriptorInfo(vk::DeviceSize size, vk::DeviceSize offset) {
+vk::DescriptorBufferInfo AllocatedBuffer::descriptorInfo(vk::DeviceSize size, vk::DeviceSize offset) {
     return vk::DescriptorBufferInfo{ buffer, offset, size };
 }
 
@@ -159,7 +127,7 @@ vk::DescriptorBufferInfo Buffer::descriptorInfo(vk::DeviceSize size, vk::DeviceS
  * @param index Used in offset calculation
  *
  */
-void Buffer::writeToIndex(void* data, int index) {
+void AllocatedBuffer::writeToIndex(void* data, int index) {
     writeToBuffer(data, instanceSize, index * alignmentSize);
 }
 
@@ -169,7 +137,7 @@ void Buffer::writeToIndex(void* data, int index) {
  * @param index Used in offset calculation
  *
  */
-vk::Result Buffer::flushIndex(int index) { return flush(alignmentSize, index * alignmentSize); }
+vk::Result AllocatedBuffer::flushIndex(int index) { return flush(alignmentSize, index * alignmentSize); }
 
 /**
  * Create a buffer info descriptor
@@ -178,7 +146,7 @@ vk::Result Buffer::flushIndex(int index) { return flush(alignmentSize, index * a
  *
  * @return VkDescriptorBufferInfo for instance at index
  */
-vk::DescriptorBufferInfo Buffer::descriptorInfoForIndex(int index) {
+vk::DescriptorBufferInfo AllocatedBuffer::descriptorInfoForIndex(int index) {
     return descriptorInfo(alignmentSize, index * alignmentSize);
 }
 
@@ -191,7 +159,7 @@ vk::DescriptorBufferInfo Buffer::descriptorInfoForIndex(int index) {
  *
  * @return VkResult of the invalidate call
  */
-vk::Result Buffer::invalidateIndex(int index) {
+vk::Result AllocatedBuffer::invalidateIndex(int index) {
     return invalidate(alignmentSize, index * alignmentSize);
 }
 
@@ -204,7 +172,7 @@ vk::Result Buffer::invalidateIndex(int index) {
  *
  * @return VkResult of the buffer mapping call
  */
-vk::DeviceSize Buffer::getAlignment(vk::DeviceSize instanceSize, vk::DeviceSize minOffsetAlignment) {
+vk::DeviceSize AllocatedBuffer::getAlignment(vk::DeviceSize instanceSize, vk::DeviceSize minOffsetAlignment) {
     if (minOffsetAlignment > 0) {
         return (instanceSize + minOffsetAlignment - 1) & ~(minOffsetAlignment - 1);
     }

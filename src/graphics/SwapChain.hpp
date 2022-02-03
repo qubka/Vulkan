@@ -13,12 +13,13 @@ namespace Engine {
         SwapChain& operator=(const SwapChain&) = delete;
         SwapChain& operator=(SwapChain&&) = delete;
 
-        const vk::Framebuffer& getFrameBuffer(size_t index) const;
-        const vk::RenderPass& getRenderPass() const;
-        const vk::ImageView& getImageView(size_t index) const;
-        const vk::Format& getSwapChainImageFormat() const;
-        const vk::Extent2D& getSwapChainExtent() const;
-        size_t imageCount() const;
+        const vk::Framebuffer& getFrameBuffer(size_t index) const { return swapChainFramebuffers[index]; };
+        const vk::RenderPass& getRenderPass() const { return renderPass; };
+        const vk::ImageView& getImageView(size_t index) const { return swapChainImageViews[index]; };
+        const vk::Format& getSwapChainImageFormat() const { return swapChainImageFormat; };
+        const vk::Extent2D& getSwapChainExtent() const { return swapChainExtent; };
+        //size_t imageCount() const { return swapChainImages.size(); };
+
         vk::Result acquireNextImage(uint32_t& imageIndex) const;
         vk::Result submitCommandBuffers(const vk::CommandBuffer& buffers, const uint32_t& imageIndex);
 

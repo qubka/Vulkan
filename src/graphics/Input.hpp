@@ -5,7 +5,7 @@ namespace Engine {
 
     class Input {
     public:
-        explicit Input(const Window& window);
+        Input(const Window& window);
         ~Input();
         Input(const Input&) = delete;
         Input(Input&&) = delete;

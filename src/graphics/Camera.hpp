@@ -20,17 +20,18 @@ namespace Engine {
         glm::vec3 up() const;
         glm::vec3 right() const;
 
-        const glm::mat4& getProjection() const;
-        const glm::mat4& getView() const;
-        const glm::mat4& getViewProjection() const;
-        float getYaw() const;
-        float getPitch() const;
-        float getFov() const;
-        float getSpeed() const;
-        float getNear() const;
-        float getFar() const;
-        const glm::vec3& getPosition() const;
-        const glm::quat& getRotation() const;
+        const glm::mat4& getProjection() const { return projectionMatrix; };
+        const glm::mat4& getView() const { return viewMatrix; };
+        const glm::mat4& getViewProjection() const { return viewProjectionMatrix; };
+        float getYaw() const { return yaw; };
+        float getPitch() const { return pitch; };
+        float getFov() const { return fov; };
+        float getSpeed() const { return speed; };
+        float getNear() const { return near; };
+        float getFar() const { return far; };
+        const glm::vec3& getPosition() const { return position; };
+        const glm::quat& getRotation() const { return rotation; };
+
         void setPosition(const glm::vec3& pos);
         void setRotation(const glm::quat& rot);
         void setPositionAndRotation(const glm::vec3& pos, const glm::quat& rot);

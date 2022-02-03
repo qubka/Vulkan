@@ -25,24 +25,22 @@ namespace Engine {
         const bool enableValidationLayers = true;
 #endif
     public:
-        explicit Device(const Window& window);
+        Device(const Window& window);
         ~Device();
         Device(const Device&) = delete;
         Device(Device&&) = delete;
         Device& operator=(const Device&) = delete;
         Device& operator=(Device&&) = delete;
 
-        const vk::Device& operator()() const;
-        const vk::Device& getDevice() const;
-        const vk::PhysicalDevice& getPhysicalDevice() const;
-        const vk::SurfaceKHR& getSurface() const;
-        const vk::Queue& getGraphicsQueue() const;
-        const vk::Queue& getPresentQueue() const;
-        const vk::CommandPool& getCommandPool() const;
-        const vk::PhysicalDeviceProperties& getProperties() const;
+        const vk::Device& getLogical() const { return logicalDevice; };
+        const vk::PhysicalDevice& getPhysical() const { return physicalDevice; };
+        const vk::SurfaceKHR& getSurface() const { return surface; };
+        const vk::Queue& getGraphicsQueue() const { return graphicsQueue; };
+        const vk::Queue& getPresentQueue() const { return presentQueue; };
+        const vk::CommandPool& getCommandPool() const { return commandPool; };
 
-        SwapChainSupportDetails getSwapChainSupport() const;
-        QueueFamilyIndices findPhysicalQueueFamilies() const;
+        SwapChainSupportDetails getSwapChainSupport() const { return querySwapChainSupport(physicalDevice); };
+        QueueFamilyIndices findPhysicalQueueFamilies() const { return findQueueFamilies(physicalDevice); };
 
         vk::Format findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) const;
         void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer& buffer, vk::DeviceMemory& bufferMemory) const;
@@ -76,7 +74,7 @@ namespace Engine {
 
         vk::Instance instance;
         vk::PhysicalDevice physicalDevice;
-        vk::Device device;
+        vk::Device logicalDevice;
         vk::Queue graphicsQueue;
         vk::Queue presentQueue;
         vk::SurfaceKHR surface;

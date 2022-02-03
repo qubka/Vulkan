@@ -10,14 +10,15 @@ namespace Engine {
         Window& operator=(Window&&) = delete;
         Window& operator=(const Window&) = delete;
 
+        operator GLFWwindow*() const { return window; };
+        int getWidth() const { return width; };
+        int getHeight() const { return height; };
+        float getAspect() const { return aspect; };
+        const std::string& getTitle() const { return title; };
+        glm::vec4 getViewport() const;
+
         bool shouldClose() const;
         void shouldClose(bool flag) const;
-
-        operator GLFWwindow*() const;
-        int getWidth() const;
-        int getHeight() const;
-        float getAspect() const;
-        const std::string& getTitle() const;
 
         bool wasResized() const;
         void resetResized();
@@ -35,6 +36,7 @@ namespace Engine {
         bool locked;
 
         void init();
+
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
     };
 }

@@ -3,19 +3,19 @@
 namespace Engine {
     class Device;
 
-    class Buffer {
+    class AllocatedBuffer {
     public:
-        Buffer(Device& device,
-               vk::DeviceSize instanceSize,
-               uint32_t instanceCount,
-               vk::BufferUsageFlags usageFlags,
-               vk::MemoryPropertyFlags memoryPropertyFlags,
-               vk::DeviceSize minOffsetAlignment = 1);
-        ~Buffer();
-        Buffer(const Buffer&) = delete;
-        Buffer(Buffer&&) = delete;
-        Buffer& operator=(const Buffer&) = delete;
-        Buffer& operator=(Buffer&&) = delete;
+        AllocatedBuffer(Device& device,
+                        vk::DeviceSize instanceSize,
+                        uint32_t instanceCount,
+                        vk::BufferUsageFlags usageFlags,
+                        vk::MemoryPropertyFlags memoryPropertyFlags,
+                        vk::DeviceSize minOffsetAlignment = 1);
+        ~AllocatedBuffer();
+        AllocatedBuffer(const AllocatedBuffer&) = delete;
+        AllocatedBuffer(AllocatedBuffer&&) = delete;
+        AllocatedBuffer& operator=(const AllocatedBuffer&) = delete;
+        AllocatedBuffer& operator=(AllocatedBuffer&&) = delete;
 
         void map(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
         void unmap();
@@ -30,15 +30,15 @@ namespace Engine {
         vk::DescriptorBufferInfo descriptorInfoForIndex(int index);
         vk::Result invalidateIndex(int index);
 
-        vk::Buffer& getBuffer();
-        void* getMappedMemory();
-
-        uint32_t getInstanceCount() const;
-        vk::DeviceSize getInstanceSize() const;
-        vk::DeviceSize getAlignmentSize() const;
-        vk::BufferUsageFlags getUsageFlags() const;
-        vk::MemoryPropertyFlags getMemoryPropertyFlags() const;
-        vk::DeviceSize getBufferSize() const;
+        vk::Buffer& operator*() { return buffer; };
+        vk::Buffer& get() { return buffer; };
+        void* getMappedMemory() { return mapped; };
+        uint32_t getInstanceCount() const { return instanceSize; };
+        vk::DeviceSize getInstanceSize() const { return instanceSize; };
+        vk::DeviceSize getAlignmentSize() const { return alignmentSize; };
+        vk::BufferUsageFlags getUsageFlags() const { return usageFlags; };
+        vk::MemoryPropertyFlags getMemoryPropertyFlags()  { return memoryPropertyFlags; };
+        vk::DeviceSize getBufferSize() const { return bufferSize; };
 
     private:
         Device& device;

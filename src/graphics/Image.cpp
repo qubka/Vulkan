@@ -11,10 +11,9 @@ Image::Image(const std::string& path, int channel, bool flip) {
     if (!pixels) {
         throw std::runtime_error("Failed to load image: \"" + path + "\" - " + stbi_failure_reason());
     }
-    if (channel != channels) {
+    /*if (channel != channels) {
         std::cerr << "warning: image \"" << path << "\" does not match expected number of channels" << std::endl;
-    }
-    size = width * height * std::max(channel, channels);
+    }*/
 }
 
 Image::~Image() {

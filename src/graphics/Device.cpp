@@ -43,9 +43,9 @@ Device::~Device() {
         DestroyDebugUtilsMessengerEXT(instance, callback, nullptr);
     }
 
-    device.destroyCommandPool(commandPool);
+    logicalDevice.destroyCommandPool(commandPool);
 
-    device.destroy();
+    logicalDevice.destroy();
     instance.destroy();
 }
 
@@ -286,13 +286,13 @@ void Device::createLogicalDevice() {
     }
 
     try {
-        device = physicalDevice.createDevice(createInfo);
+        logicalDevice = physicalDevice.createDevice(createInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create logical device!");
     }
 
-    graphicsQueue = device.getQueue(indices.graphicsFamily.value(), 0);
-    presentQueue = device.getQueue(indices.presentFamily.value(), 0);
+    graphicsQueue = logicalDevice.getQueue(indices.graphicsFamily.value(), 0);
+    presentQueue = logicalDevice.getQueue(indices.presentFamily.value(), 0);
 }
 
 void Device::createSurface(const Window& window) {
@@ -303,48 +303,12 @@ void Device::createSurface(const Window& window) {
     surface = raw;
 }
 
-const vk::Device& Device::operator()() const {
-    return device;
-}
-
-const vk::Device& Device::getDevice() const {
-    return device;
-}
-
-const vk::SurfaceKHR& Device::getSurface() const {
-    return surface;
-}
-
-const vk::Queue& Device::getGraphicsQueue() const {
-    return graphicsQueue;
-}
-
-const vk::Queue& Device::getPresentQueue() const {
-    return presentQueue;
-}
-
-const vk::PhysicalDevice& Device::getPhysicalDevice() const {
-    return physicalDevice;
-}
-
-const vk::CommandPool& Device::getCommandPool() const {
-    return commandPool;
-}
-
 SwapChainSupportDetails Device::querySwapChainSupport(const vk::PhysicalDevice& device) const {
     SwapChainSupportDetails details;
     details.capabilities = device.getSurfaceCapabilitiesKHR(surface);
     details.formats = device.getSurfaceFormatsKHR(surface);
     details.presentModes = device.getSurfacePresentModesKHR(surface);
     return details;
-}
-
-SwapChainSupportDetails Device::getSwapChainSupport() const {
-    return querySwapChainSupport(physicalDevice);
-}
-
-QueueFamilyIndices Device::findPhysicalQueueFamilies() const {
-    return findQueueFamilies(physicalDevice);
 }
 
 void Device::createCommandPool() {
@@ -355,7 +319,7 @@ void Device::createCommandPool() {
     poolInfo.flags = vk::CommandPoolCreateFlagBits::eTransient | vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 
     try {
-        commandPool = device.createCommandPool(poolInfo);
+        commandPool = logicalDevice.createCommandPool(poolInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create command pool!");
     }
@@ -393,24 +357,24 @@ void Device::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::M
     bufferInfo.sharingMode = vk::SharingMode::eExclusive;
 
     try {
-        buffer = device.createBuffer(bufferInfo);
+        buffer = logicalDevice.createBuffer(bufferInfo);
     }catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create buffer!");
     }
 
-    vk::MemoryRequirements memRequirements = device.getBufferMemoryRequirements(buffer);
+    vk::MemoryRequirements memRequirements = logicalDevice.getBufferMemoryRequirements(buffer);
 
     vk::MemoryAllocateInfo allocInfo{};
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
     try {
-        bufferMemory = device.allocateMemory(allocInfo);
+        bufferMemory = logicalDevice.allocateMemory(allocInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to allocate buffer memory!");
     }
 
-    device.bindBufferMemory(buffer, bufferMemory, 0);
+    logicalDevice.bindBufferMemory(buffer, bufferMemory, 0);
 }
 
 void Device::copyBuffer(const vk::Buffer& srcBuffer, vk::Buffer& dstBuffer, vk::DeviceSize size) const {
@@ -452,7 +416,7 @@ vk::CommandBuffer Device::beginSingleTimeCommands() const {
     allocInfo.commandPool = commandPool;
     allocInfo.commandBufferCount = 1;
 
-    vk::CommandBuffer commandBuffer = device.allocateCommandBuffers(allocInfo)[0];
+    vk::CommandBuffer commandBuffer = logicalDevice.allocateCommandBuffers(allocInfo)[0];
 
     vk::CommandBufferBeginInfo beginInfo{};
     beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
@@ -472,7 +436,7 @@ void Device::endSingleTimeCommands(const vk::CommandBuffer& commandBuffer) const
     graphicsQueue.submit(submitInfo, nullptr);
     graphicsQueue.waitIdle();
 
-    device.freeCommandBuffers(commandPool, commandBuffer);
+    logicalDevice.freeCommandBuffers(commandPool, commandBuffer);
 }
 
 void Device::transitionImageLayout(const vk::Image& image, vk::Format format, vk::ImageLayout oldLayout, vk::ImageLayout newLayout) const {
@@ -553,24 +517,24 @@ void Device::createImage(uint32_t width, uint32_t height, vk::Format format, vk:
     imageInfo.sharingMode = vk::SharingMode::eExclusive;
 
     try {
-        image = device.createImage(imageInfo);
+        image = logicalDevice.createImage(imageInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create image!");
     }
 
-    vk::MemoryRequirements memRequirements = device.getImageMemoryRequirements(image);
+    vk::MemoryRequirements memRequirements = logicalDevice.getImageMemoryRequirements(image);
 
     vk::MemoryAllocateInfo allocInfo{};
     allocInfo.allocationSize = memRequirements.size;
     allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
     try {
-        imageMemory = device.allocateMemory(allocInfo);
+        imageMemory = logicalDevice.allocateMemory(allocInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to allocate image memory!");
     }
 
-    device.bindImageMemory(image, imageMemory, 0);
+    logicalDevice.bindImageMemory(image, imageMemory, 0);
 }
 
 vk::ImageView Device::createImageView(const vk::Image& image, vk::Format format, vk::ImageAspectFlags aspectFlags) const {
@@ -589,7 +553,7 @@ vk::ImageView Device::createImageView(const vk::Image& image, vk::Format format,
     createInfo.subresourceRange.layerCount = 1;
 
     try {
-        return device.createImageView(createInfo);
+        return logicalDevice.createImageView(createInfo);
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create image views!");
     }
