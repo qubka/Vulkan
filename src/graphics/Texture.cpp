@@ -5,7 +5,7 @@
 
 using Engine::Texture;
 
-Texture::Texture(Device& device, std::string path, vk::Format format) :
+Texture::Texture(Device& device, std::string path, vk::Format format, vk::Filter magFilter, vk::Filter minFilter, vk::SamplerAddressMode addressMode, vk::SamplerMipmapMode minmapMode) :
     device{device},
     path{std::move(path)},
     format{format}
@@ -16,19 +16,28 @@ Texture::Texture(Device& device, std::string path, vk::Format format) :
     width = static_cast<uint32_t>(image.width);
     height = static_cast<uint32_t>(image.height);
 
-    init(image.pixels);
+    createImage(image.pixels);
+    createSampler(magFilter, minFilter, addressMode, minmapMode);
 }
 
-Texture::Texture(Device& device, void* pixels, uint32_t width, uint32_t height, vk::Format format) :
+Texture::Texture(Device& device, void* pixels, uint32_t width, uint32_t height, vk::Format format, vk::Filter magFilter, vk::Filter minFilter, vk::SamplerAddressMode addressMode, vk::SamplerMipmapMode minmapMode) :
     device{device},
     width{width},
     height{height},
     format{format}
 {
-    init(pixels);
+    createImage(pixels);
+    createSampler(magFilter, minFilter, addressMode, minmapMode);
 }
 
-void Texture::init(void* pixels) {
+Texture::~Texture() {
+    device.getLogical().destroySampler(sampler);
+    device.getLogical().destroyImageView(view);
+    device.getLogical().destroyImage(image);
+    device.getLogical().freeMemory(memory);
+}
+
+void Texture::createImage(void* pixels) {
     assert(width > 0 && height > 0 && "Width and height must be greater than zero!");
     assert(pixels && "Pixels data can be null");
 
@@ -59,8 +68,27 @@ void Texture::init(void* pixels) {
     view = device.createImageView(image, format, vk::ImageAspectFlagBits::eColor);
 }
 
-Texture::~Texture() {
-    device.getLogical().destroyImageView(view);
-    device.getLogical().destroyImage(image);
-    device.getLogical().freeMemory(memory);
+void Texture::createSampler(vk::Filter magFilter, vk::Filter minFilter, vk::SamplerAddressMode addressMode, vk::SamplerMipmapMode minmapMode) {
+    vk::PhysicalDeviceProperties properties = device.getPhysical().getProperties();
+
+    vk::SamplerCreateInfo samplerInfo{};
+    samplerInfo.magFilter = magFilter;
+    samplerInfo.minFilter = minFilter;
+    samplerInfo.addressModeU = addressMode;
+    samplerInfo.addressModeV = addressMode;
+    samplerInfo.addressModeW = addressMode;
+    samplerInfo.anisotropyEnable = VK_FALSE;
+    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+    samplerInfo.borderColor = vk::BorderColor::eIntOpaqueBlack;
+    samplerInfo.unnormalizedCoordinates = VK_FALSE;
+    samplerInfo.compareEnable = VK_FALSE;
+    samplerInfo.compareOp = vk::CompareOp::eAlways;
+    samplerInfo.mipmapMode = minmapMode;
+
+    try {
+        sampler = device.getLogical().createSampler(samplerInfo);
+    } catch (vk::SystemError& err) {
+        throw std::runtime_error("failed to create texture sampler!");
+    }
 }
+

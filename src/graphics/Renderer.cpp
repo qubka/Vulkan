@@ -134,7 +134,6 @@ void Renderer::beginSwapChainRenderPass(uint32_t frameIndex) {
     renderPassInfo.renderArea.offset = vk::Offset2D{ 0, 0 };
     renderPassInfo.renderArea.extent = extent;
 
-
     std::array<vk::ClearValue, 2> clearValues{};
     clearValues[0].color = std::array<float, 4>{ 0, 0, 0, 1 };
     clearValues[1].depthStencil.depth = 1.0f;

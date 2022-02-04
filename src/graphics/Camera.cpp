@@ -13,8 +13,8 @@ Camera::Camera(Window& window, float speed, float fov, float near, float far) :
     near{near},
     far{far}
 {
-    assert(far > near && "far cannot be less then near");
-    assert(speed >= 0.0f && "speed cannot be negative");
+    assert(far > near && "Far cannot be less then near");
+    assert(speed >= 0.0f && "Speed cannot be negative");
     updateViewMatrix();
 }
 

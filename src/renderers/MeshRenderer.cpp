@@ -5,6 +5,8 @@
 #include "../graphics/Mesh.hpp"
 #include "../graphics/Texture.hpp"
 #include "../graphics/Renderer.hpp"
+#include "../graphics/Descriptors.hpp"
+#include "../graphics/SwapChain.hpp"
 
 #include "../components/Transform.hpp"
 #include "../components/Model.hpp"
@@ -12,6 +14,7 @@
 using Engine::MeshRenderer;
 
 MeshRenderer::MeshRenderer(Device& device, Renderer& renderer) : device{device}, renderer{renderer} {
+    createDescriptorSets();
     createPipelineLayout();
     createPipeline();
 }
@@ -20,13 +23,41 @@ MeshRenderer::~MeshRenderer() {
     device.getLogical().destroyPipelineLayout(pipelineLayout);
 }
 
+void MeshRenderer::createDescriptorSets() {
+    texturePool = DescriptorPool::Builder(device)
+            .setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT)
+            .addPoolSize(vk::DescriptorType::eCombinedImageSampler, SwapChain::MAX_FRAMES_IN_FLIGHT)
+            .build();
+
+    textureLayout = DescriptorLayout::Builder(device)
+            .addBinding(0, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment)
+            .build();
+
+    textureDescriptorSets.reserve(SwapChain::MAX_FRAMES_IN_FLIGHT);
+
+    texture = std::make_unique<Texture>(device, "textures/texture.jpg", vk::Format::eR8G8B8A8Srgb);
+
+    vk::DescriptorImageInfo imageInfo{};
+    imageInfo.sampler = texture->getSampler();
+    imageInfo.imageView = texture->getView();
+    imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+    for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
+        vk::DescriptorSet descriptorSet;
+        DescriptorWriter(*textureLayout, *texturePool)
+                .writeImage(0, imageInfo)
+                .build(descriptorSet);
+        textureDescriptorSets.push_back(descriptorSet);
+    }
+}
+
 void MeshRenderer::createPipelineLayout() {
     vk::PushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = vk::ShaderStageFlagBits::eVertex;
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(PushConstantData);
 
-    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts{renderer.getGlobalLayoutSet()};
+    std::array<vk::DescriptorSetLayout, 2> descriptorSetLayouts{renderer.getGlobalLayoutSet(), textureLayout->getDescriptorSetLayout()};
 
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
@@ -55,7 +86,16 @@ void MeshRenderer::render(const FrameInfo& frameInfo) {
 
     pipeline->bind(commandBuffer);
 
-    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, 1, &renderer.getCurrentDescriptorSet(), 0, nullptr);
+    std::array<vk::DescriptorSet, 2> descriptorSets{renderer.getCurrentDescriptorSet(), textureDescriptorSets[frameInfo.frameIndex]};
+
+    commandBuffer.bindDescriptorSets(
+            vk::PipelineBindPoint::eGraphics,
+            pipelineLayout,
+            0,
+            static_cast<uint32_t>(descriptorSets.size()),
+            descriptorSets.data(),
+            0,
+            nullptr);
 
     auto entities = frameInfo.registry.view<const Transform, const Model>();
     for (auto [entity, transform, model] : entities.each()) {

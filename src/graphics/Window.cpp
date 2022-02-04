@@ -8,7 +8,7 @@ Window::Window(std::string title, int width, int height) :
     height{height},
     aspect{static_cast<float>(width) / static_cast<float>(height)}
 {
-    assert(width > 0 && height > 0 && "width or height cannot be negative");
+    assert(width > 0 && height > 0 && "Width or height cannot be negative");
     static auto once = (glfwInit(), true);
     init();
 }
