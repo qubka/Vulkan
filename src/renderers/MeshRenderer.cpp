@@ -52,7 +52,9 @@ void MeshRenderer::createPipeline() {
 
 void MeshRenderer::render(const FrameInfo& frameInfo) {
     auto& commandBuffer = renderer.getCurrentCommandBuffer();
+
     pipeline->bind(commandBuffer);
+
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, 1, &renderer.getCurrentDescriptorSet(), 0, nullptr);
 
     auto entities = frameInfo.registry.view<const Transform, const Model>();
