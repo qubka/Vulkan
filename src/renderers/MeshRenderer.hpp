@@ -14,7 +14,7 @@ namespace Engine {
 
     class MeshRenderer : public RendererSystemBase {
     public:
-        MeshRenderer(Device& device, const vk::RenderPass& renderPass, const vk::DescriptorSetLayout& setLayout);
+        MeshRenderer(Device& device, Renderer& renderer);
         ~MeshRenderer() override;
         MeshRenderer(const MeshRenderer&) = delete;
         MeshRenderer(MeshRenderer&&) = delete;
@@ -24,10 +24,12 @@ namespace Engine {
         void render(const FrameInfo& frameInfo) override;
 
     private:
-        void createPipelineLayout(const vk::DescriptorSetLayout& setLayout);
-        void createPipeline(const vk::RenderPass& renderPass);
+        void createPipelineLayout();
+        void createPipeline();
 
         Device& device;
+        Renderer& renderer;
+
         std::unique_ptr<Pipeline> pipeline;
         vk::PipelineLayout pipelineLayout;
     };

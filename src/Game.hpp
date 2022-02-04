@@ -7,7 +7,6 @@
 #include "graphics/Pipeline.hpp"
 #include "graphics/Renderer.hpp"
 #include "graphics/Camera.hpp"
-#include "graphics/Descriptors.hpp"
 
 #define WIDTH 1280
 #define HEIGHT 720
@@ -42,9 +41,5 @@ namespace Engine {
 
         std::vector<std::unique_ptr<RendererSystemBase>> renders;
         std::vector<std::unique_ptr<ComponentSystemBase>> systems;
-        std::vector<std::unique_ptr<AllocatedBuffer>> uboBuffers;
-        std::unique_ptr<DescriptorPool> globalPool;
-        std::unique_ptr<DescriptorSetLayout> globalSetLayout;
-        std::vector<vk::DescriptorSet> globalDescriptorSets;
     };
 }

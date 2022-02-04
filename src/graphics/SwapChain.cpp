@@ -95,9 +95,9 @@ void SwapChain::createSwapChain() {
     }
 
     swapChainImages = device.getLogical().getSwapchainImagesKHR(swapChain);
-
     swapChainImageFormat = surfaceFormat.format;
     swapChainExtent = extent;
+    swapChainDepthFormat = findDepthFormat();
 }
 
 vk::SurfaceFormatKHR SwapChain::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats) const {
@@ -159,7 +159,7 @@ void SwapChain::createRenderPass() {
     colorAttachment.finalLayout = vk::ImageLayout::ePresentSrcKHR;
 
     vk::AttachmentDescription depthAttachment{};
-    depthAttachment.format = findDepthFormat();
+    depthAttachment.format = swapChainDepthFormat;
     depthAttachment.samples = vk::SampleCountFlagBits::e1;
     depthAttachment.loadOp = vk::AttachmentLoadOp::eClear;
     depthAttachment.storeOp = vk::AttachmentStoreOp::eDontCare;
@@ -206,6 +206,20 @@ void SwapChain::createRenderPass() {
     }
 }
 
+void SwapChain::createDepthResources() {
+    device.createImage(
+            swapChainExtent.width,
+            swapChainExtent.height,
+            swapChainDepthFormat,
+            vk::ImageTiling::eOptimal,
+            vk::ImageUsageFlagBits::eDepthStencilAttachment,
+            vk::MemoryPropertyFlagBits::eDeviceLocal,
+            depthImage,
+            depthImageMemory);
+
+    depthImageView = device.createImageView(depthImage, swapChainDepthFormat, vk::ImageAspectFlagBits::eDepth);
+}
+
 void SwapChain::createFramebuffers() {
     swapChainFramebuffers.reserve(swapChainImageViews.size());
 
@@ -246,22 +260,6 @@ void SwapChain::createSyncObjects() {
     } catch (vk::SystemError& err) {
         throw std::runtime_error("failed to create synchronization objects for a frame!");
     }
-}
-
-void SwapChain::createDepthResources() {
-    vk::Format depthFormat = findDepthFormat();
-
-    device.createImage(
-            swapChainExtent.width,
-            swapChainExtent.height,
-            depthFormat,
-            vk::ImageTiling::eOptimal,
-            vk::ImageUsageFlagBits::eDepthStencilAttachment,
-            vk::MemoryPropertyFlagBits::eDeviceLocal,
-            depthImage,
-            depthImageMemory);
-
-    depthImageView = device.createImageView(depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth);
 }
 
 vk::Format SwapChain::findDepthFormat() const {
@@ -346,6 +344,6 @@ vk::Result SwapChain::submitCommandBuffers(const vk::CommandBuffer& buffers, con
 }
 
 bool SwapChain::compareSwapFormats(const SwapChain& other) const {
-    return /*other.swapChainDepthFormat == swapChainDepthFormat &&*/
+    return other.swapChainDepthFormat == swapChainDepthFormat &&
             other.swapChainImageFormat == swapChainImageFormat;
 }

@@ -371,7 +371,7 @@ void Device::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::M
     try {
         bufferMemory = logicalDevice.allocateMemory(allocInfo);
     } catch (vk::SystemError& err) {
-        throw std::runtime_error("failed to allocate buffer memory!");
+        throw std::runtime_error("failed to allocateDescriptor buffer memory!");
     }
 
     logicalDevice.bindBufferMemory(buffer, bufferMemory, 0);
@@ -531,7 +531,7 @@ void Device::createImage(uint32_t width, uint32_t height, vk::Format format, vk:
     try {
         imageMemory = logicalDevice.allocateMemory(allocInfo);
     } catch (vk::SystemError& err) {
-        throw std::runtime_error("failed to allocate image memory!");
+        throw std::runtime_error("failed to allocateDescriptor image memory!");
     }
 
     logicalDevice.bindImageMemory(image, imageMemory, 0);

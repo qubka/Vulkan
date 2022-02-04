@@ -6,8 +6,6 @@ namespace Engine {
     struct FrameInfo {
         uint32_t frameIndex;
         float deltaTime;
-        vk::CommandBuffer& cb;
-        vk::DescriptorSet& ds;
         Camera& camera;
         entt::registry& registry;
     };

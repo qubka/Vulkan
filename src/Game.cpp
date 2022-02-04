@@ -20,41 +20,8 @@ Game::Game() {
 }
 
 void Game::init() {
-    globalPool = DescriptorPool::Builder(device)
-            .setMaxSets(SwapChain::MAX_FRAMES_IN_FLIGHT)
-            .addPoolSize(vk::DescriptorType::eUniformBuffer, SwapChain::MAX_FRAMES_IN_FLIGHT)
-            .build();
-
-    uboBuffers.reserve(SwapChain::MAX_FRAMES_IN_FLIGHT);
-
-    for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
-        auto buffer = std::make_unique<AllocatedBuffer>(
-                device,
-                sizeof(UniformBufferObject),
-                1,
-                vk::BufferUsageFlagBits::eUniformBuffer,
-                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-        buffer->map();
-        uboBuffers.push_back(std::move(buffer));
-    }
-
-    globalSetLayout = DescriptorSetLayout::Builder(device)
-            .addBinding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex)
-            .build();
-
-    globalDescriptorSets.reserve(SwapChain::MAX_FRAMES_IN_FLIGHT);
-
-    for (int i = 0; i < SwapChain::MAX_FRAMES_IN_FLIGHT; i++) {
-        vk::DescriptorSet descriptorSet;
-        auto bufferInfo = uboBuffers[i]->descriptorInfo();
-        DescriptorWriter(*globalSetLayout, *globalPool)
-                .writeBuffer(0, bufferInfo)
-                .build(descriptorSet);
-        globalDescriptorSets.push_back(descriptorSet);
-    }
-
     // Create renders
-    renders.push_back(std::make_unique<MeshRenderer>(device, renderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout()));
+    renders.push_back(std::make_unique<MeshRenderer>(device, renderer));
 
     // Create systems
     systems.push_back(std::make_unique<TransformSystem>());
@@ -63,7 +30,7 @@ void Game::init() {
     meshBuilder.loadModel("models/cube.obj");
     auto mesh = std::make_shared<Mesh>(device, meshBuilder);
 
-    auto  entity = registry.create();
+    auto entity = registry.create();
     registry.emplace<Transform>(entity, glm::translate(glm::mat4{1}, glm::vec3{5,5,5}));
     registry.emplace<Model>(entity, mesh);
 
@@ -111,15 +78,13 @@ void Game::run() {
             UniformBufferObject ubo{};
             ubo.perspective = camera.getViewProjection();
             ubo.orthogonal = glm::ortho(0, window.getWidth(), 0, window.getHeight());
-            auto& buffer = uboBuffers[frameIndex];
+            auto& buffer = renderer.getCurrentUniformBuffer();
             buffer->writeToBuffer(&ubo);
             buffer->flush();
 
             FrameInfo frameInfo{
                 frameIndex,
                 deltaTime,
-                renderer.getCurrentCommandBuffer(),
-                globalDescriptorSets[frameIndex],
                 camera,
                 registry
             };

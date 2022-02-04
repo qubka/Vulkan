@@ -53,6 +53,7 @@ namespace Engine {
         vk::Image depthImage;
         vk::DeviceMemory depthImageMemory;
         vk::ImageView depthImageView;
+        vk::Format swapChainDepthFormat;
 
         std::shared_ptr<SwapChain> oldSwapChain;
 

@@ -11,24 +11,26 @@
 
 using Engine::MeshRenderer;
 
-MeshRenderer::MeshRenderer(Device& device, const vk::RenderPass& renderPass, const vk::DescriptorSetLayout& setLayout) : device{device} {
-    createPipelineLayout(setLayout);
-    createPipeline(renderPass);
+MeshRenderer::MeshRenderer(Device& device, Renderer& renderer) : device{device}, renderer{renderer} {
+    createPipelineLayout();
+    createPipeline();
 }
 
 MeshRenderer::~MeshRenderer() {
     device.getLogical().destroyPipelineLayout(pipelineLayout);
 }
 
-void MeshRenderer::createPipelineLayout(const vk::DescriptorSetLayout& setLayout) {
+void MeshRenderer::createPipelineLayout() {
     vk::PushConstantRange pushConstantRange{};
     pushConstantRange.stageFlags = vk::ShaderStageFlagBits::eVertex;
     pushConstantRange.offset = 0;
     pushConstantRange.size = sizeof(PushConstantData);
 
+    std::vector<vk::DescriptorSetLayout> descriptorSetLayouts{renderer.getGlobalLayoutSet()};
+
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.setLayoutCount = 1;
-    pipelineLayoutInfo.pSetLayouts = &setLayout;
+    pipelineLayoutInfo.setLayoutCount = static_cast<uint32_t>(descriptorSetLayouts.size());
+    pipelineLayoutInfo.pSetLayouts = descriptorSetLayouts.data();
     pipelineLayoutInfo.pushConstantRangeCount = 1;
     pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
@@ -39,39 +41,27 @@ void MeshRenderer::createPipelineLayout(const vk::DescriptorSetLayout& setLayout
     }
 }
 
-void MeshRenderer::createPipeline(const vk::RenderPass& renderPass) {
+void MeshRenderer::createPipeline() {
     PipelineConfigInfo configInfo{};
     Pipeline::defaultPipelineConfigInfo(configInfo);
     configInfo.pipelineLayout = pipelineLayout;
-    configInfo.renderPass = renderPass;
+    configInfo.renderPass = renderer.getSwapChainRenderPass();
     configInfo.subpass = 0;
     pipeline = std::make_unique<Pipeline>(device, "shaders/mesh.vert.spv", "shaders/mesh.frag.spv", configInfo);
 }
 
 void MeshRenderer::render(const FrameInfo& frameInfo) {
-    pipeline->bind(frameInfo.cb);
-
-    frameInfo.cb.bindDescriptorSets(
-            vk::PipelineBindPoint::eGraphics,
-            pipelineLayout,
-            0,
-            1,
-            &frameInfo.ds,
-            0,
-            nullptr);
+    auto& commandBuffer = renderer.getCurrentCommandBuffer();
+    pipeline->bind(commandBuffer);
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipelineLayout, 0, 1, &renderer.getCurrentDescriptorSet(), 0, nullptr);
 
     auto entities = frameInfo.registry.view<const Transform, const Model>();
     for (auto [entity, transform, model] : entities.each()) {
         PushConstantData push { transform };
 
-        frameInfo.cb.pushConstants(
-                pipelineLayout,
-                vk::ShaderStageFlagBits::eVertex,
-                0,
-                sizeof(PushConstantData),
-                &push);
+        commandBuffer.pushConstants(pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, sizeof(PushConstantData), &push);
 
-        model.mesh->bind(frameInfo.cb);
-        model.mesh->draw(frameInfo.cb);
+        model.mesh->bind(commandBuffer);
+        model.mesh->draw(commandBuffer);
     }
 }

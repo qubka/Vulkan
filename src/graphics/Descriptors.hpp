@@ -3,38 +3,6 @@
 namespace Engine {
     class Device;
 
-    class DescriptorSetLayout {
-    public:
-        class Builder {
-        public:
-            explicit Builder(Device& device) : device{device} {}
-            Builder& addBinding(uint32_t binding, vk::DescriptorType descriptorType, vk::ShaderStageFlags stageFlags, uint32_t count = 1);
-            std::unique_ptr<DescriptorSetLayout> build() const;
-
-        private:
-            Device& device;
-            std::unordered_map<uint32_t, vk::DescriptorSetLayoutBinding> bindings;
-
-            friend class DescriptorSetLayout;
-        };
-
-        DescriptorSetLayout(const Builder& builder);
-        ~DescriptorSetLayout();
-        DescriptorSetLayout(const DescriptorSetLayout&) = delete;
-        DescriptorSetLayout(DescriptorSetLayout&&) = delete;
-        DescriptorSetLayout& operator=(const DescriptorSetLayout&) = delete;
-        DescriptorSetLayout& operator=(DescriptorSetLayout&&) = delete;
-
-        const vk::DescriptorSetLayout& getDescriptorSetLayout() const { return descriptorSetLayout; }
-
-    private:
-        Device& device;
-        vk::DescriptorSetLayout descriptorSetLayout;
-        std::unordered_map<uint32_t, vk::DescriptorSetLayoutBinding> bindings;
-
-        friend class DescriptorWriter;
-    };
-
     class DescriptorPool {
     public:
         class Builder {
@@ -50,7 +18,7 @@ namespace Engine {
             Device& device;
             std::vector<vk::DescriptorPoolSize> poolSizes;
             vk::DescriptorPoolCreateFlags poolFlags;
-            uint32_t maxSets{1};
+            uint32_t maxSets{1000};
 
             friend class DescriptorPool;
         };
@@ -62,7 +30,7 @@ namespace Engine {
         DescriptorPool& operator=(const DescriptorPool&) = delete;
         DescriptorPool& operator=(DescriptorPool&&) = delete;
 
-        bool allocateDescriptor(const vk::DescriptorSetLayout& descriptorSetLayout, vk::DescriptorSet& descriptor) const;
+        bool allocateDescriptor(const vk::DescriptorSetLayout& setLayout, vk::DescriptorSet& descriptor) const;
         void freeDescriptors(std::vector<vk::DescriptorSet>& descriptors) const;
         void resetPool();
 
@@ -73,9 +41,41 @@ namespace Engine {
         friend class DescriptorWriter;
     };
 
+    class DescriptorLayout {
+    public:
+        class Builder {
+        public:
+            explicit Builder(Device& device) : device{device} {}
+            Builder& addBinding(uint32_t binding, vk::DescriptorType descriptorType, vk::ShaderStageFlags stageFlags, uint32_t count = 1);
+            std::unique_ptr<DescriptorLayout> build() const;
+
+        private:
+            Device& device;
+            std::unordered_map<uint32_t, vk::DescriptorSetLayoutBinding> bindings;
+
+            friend class DescriptorLayout;
+        };
+
+        DescriptorLayout(const Builder& builder);
+        ~DescriptorLayout();
+        DescriptorLayout(const DescriptorLayout&) = delete;
+        DescriptorLayout(DescriptorLayout&&) = delete;
+        DescriptorLayout& operator=(const DescriptorLayout&) = delete;
+        DescriptorLayout& operator=(DescriptorLayout&&) = delete;
+
+        const vk::DescriptorSetLayout& getDescriptorSetLayout() const { return descriptorSetLayout; }
+
+    private:
+        Device& device;
+        vk::DescriptorSetLayout descriptorSetLayout;
+        std::unordered_map<uint32_t, vk::DescriptorSetLayoutBinding> bindings;
+
+        friend class DescriptorWriter;
+    };
+
     class DescriptorWriter {
     public:
-        DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPool& pool);
+        DescriptorWriter(DescriptorLayout& layout, DescriptorPool& pool);
         DescriptorWriter& writeBuffer(uint32_t binding, const vk::DescriptorBufferInfo& bufferInfo);
         DescriptorWriter& writeImage(uint32_t binding, const vk::DescriptorImageInfo& imageInfo);
 
@@ -83,7 +83,7 @@ namespace Engine {
         void overwrite(vk::DescriptorSet& set);
 
     private:
-        DescriptorSetLayout& setLayout;
+        DescriptorLayout& layout;
         DescriptorPool& pool;
         std::vector<vk::WriteDescriptorSet> writes;
     };
@@ -116,11 +116,11 @@ namespace Engine {
 
         vk::DescriptorPool grabPool();
         void resetPools();
-        bool allocate(const vk::DescriptorSetLayout& layout, vk::DescriptorSet& set);
-        void update(std::vector<vk::WriteDescriptorSet>& writes) const;
+        bool allocateDescriptor(const vk::DescriptorSetLayout& layout, vk::DescriptorSet& set);
+        void updateDescriptor(std::vector<vk::WriteDescriptorSet>& writes) const;
 
     private:
-        vk::DescriptorPool createPool(int count, vk::DescriptorPoolCreateFlags flags) const;
+        vk::DescriptorPool createPool(uint32_t count, vk::DescriptorPoolCreateFlags flags) const;
 
         vk::DescriptorPool currentPool{nullptr};
         PoolSizes descriptorSizes;

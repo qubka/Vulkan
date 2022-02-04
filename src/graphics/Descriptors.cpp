@@ -1,51 +1,9 @@
 #include "Descriptors.hpp"
 #include "Device.hpp"
 
-using Engine::DescriptorSetLayout;
+using Engine::DescriptorLayout;
 using Engine::DescriptorPool;
 using Engine::DescriptorWriter;
-
-// *************** Descriptor Set Layout Builder *********************
-
-DescriptorSetLayout::Builder& DescriptorSetLayout::Builder::addBinding(uint32_t binding, vk::DescriptorType descriptorType, vk::ShaderStageFlags stageFlags, uint32_t count) {
-    assert(bindings.count(binding) == 0 && "Binding already in use");
-    vk::DescriptorSetLayoutBinding layoutBinding{};
-    layoutBinding.binding = binding;
-    layoutBinding.descriptorType = descriptorType;
-    layoutBinding.descriptorCount = count;
-    layoutBinding.stageFlags = stageFlags;
-    bindings[binding] = layoutBinding;
-    return *this;
-}
-
-std::unique_ptr<DescriptorSetLayout> DescriptorSetLayout::Builder::build() const {
-    return std::make_unique<DescriptorSetLayout>(*this);
-}
-
-// *************** Descriptor Set Layout *********************
-
-DescriptorSetLayout::DescriptorSetLayout(const Builder& builder) : device{builder.device}, bindings{builder.bindings} {
-    std::vector<vk::DescriptorSetLayoutBinding> setLayoutBindings;
-    setLayoutBindings.reserve(bindings.size());
-
-    for (const auto& b : bindings) {
-        setLayoutBindings.push_back(b.second);
-    }
-
-    vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutInfo{};
-    descriptorSetLayoutInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
-    descriptorSetLayoutInfo.pBindings = setLayoutBindings.data();
-
-    try {
-        descriptorSetLayout = device.getLogical().createDescriptorSetLayout(descriptorSetLayoutInfo);
-    } catch (vk::SystemError& err) {
-        throw std::runtime_error("failed to create descriptor set layout!");
-    }
-}
-
-DescriptorSetLayout::~DescriptorSetLayout() {
-    device.getLogical().destroyDescriptorSetLayout(descriptorSetLayout);
-}
 
 // *************** Descriptor Pool Builder *********************
 
@@ -88,16 +46,16 @@ DescriptorPool::~DescriptorPool() {
     device.getLogical().destroyDescriptorPool(descriptorPool);
 }
 
-bool DescriptorPool::allocateDescriptor(const vk::DescriptorSetLayout& descriptorSetLayout, vk::DescriptorSet& descriptor) const {
+bool DescriptorPool::allocateDescriptor(const vk::DescriptorSetLayout& setLayout, vk::DescriptorSet& descriptor) const {
     vk::DescriptorSetAllocateInfo allocInfo{};
     allocInfo.descriptorPool = descriptorPool;
-    allocInfo.pSetLayouts = &descriptorSetLayout;
+    allocInfo.pSetLayouts = &setLayout;
     allocInfo.descriptorSetCount = 1;
 
     // Might want to create a "DescriptorPoolManager" class that handles this case, and builds
     // a new pool whenever an old pool fills up. But this is beyond our current scope
     if (device.getLogical().allocateDescriptorSets(&allocInfo, &descriptor) != vk::Result::eSuccess) {
-        std::cout << "pools fills up" << std::endl;
+        std::cerr << "pools fills up!" << std::endl;
         return false;
     }
 
@@ -112,14 +70,56 @@ void DescriptorPool::resetPool() {
     device.getLogical().resetDescriptorPool(descriptorPool);
 }
 
+// *************** Descriptor Set Layout Builder *********************
+
+DescriptorLayout::Builder& DescriptorLayout::Builder::addBinding(uint32_t binding, vk::DescriptorType descriptorType, vk::ShaderStageFlags stageFlags, uint32_t count) {
+    assert(bindings.count(binding) == 0 && "Binding already in use");
+    vk::DescriptorSetLayoutBinding layoutBinding{};
+    layoutBinding.binding = binding;
+    layoutBinding.descriptorType = descriptorType;
+    layoutBinding.descriptorCount = count;
+    layoutBinding.stageFlags = stageFlags;
+    bindings[binding] = layoutBinding;
+    return *this;
+}
+
+std::unique_ptr<DescriptorLayout> DescriptorLayout::Builder::build() const {
+    return std::make_unique<DescriptorLayout>(*this);
+}
+
+// *************** Descriptor Set Layout *********************
+
+DescriptorLayout::DescriptorLayout(const Builder& builder) : device{builder.device}, bindings{builder.bindings} {
+    std::vector<vk::DescriptorSetLayoutBinding> setLayoutBindings;
+    setLayoutBindings.reserve(bindings.size());
+
+    for (const auto& b : bindings) {
+        setLayoutBindings.push_back(b.second);
+    }
+
+    vk::DescriptorSetLayoutCreateInfo descriptorSetLayoutInfo{};
+    descriptorSetLayoutInfo.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
+    descriptorSetLayoutInfo.pBindings = setLayoutBindings.data();
+
+    try {
+        descriptorSetLayout = device.getLogical().createDescriptorSetLayout(descriptorSetLayoutInfo);
+    } catch (vk::SystemError& err) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
+}
+
+DescriptorLayout::~DescriptorLayout() {
+    device.getLogical().destroyDescriptorSetLayout(descriptorSetLayout);
+}
+
 // *************** Descriptor Writer *********************
 
-DescriptorWriter::DescriptorWriter(DescriptorSetLayout& setLayout, DescriptorPool& pool) : setLayout{setLayout}, pool{pool} {
+DescriptorWriter::DescriptorWriter(DescriptorLayout& layout, DescriptorPool& pool) : layout{layout}, pool{pool} {
 }
 
 DescriptorWriter& DescriptorWriter::writeBuffer(uint32_t binding, const vk::DescriptorBufferInfo& bufferInfo) {
-    assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
-    auto& bindingDescription = setLayout.bindings[binding];
+    assert(layout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+    const auto& bindingDescription = layout.bindings[binding];
     assert(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple");
 
     vk::WriteDescriptorSet write{};
@@ -133,8 +133,8 @@ DescriptorWriter& DescriptorWriter::writeBuffer(uint32_t binding, const vk::Desc
 }
 
 DescriptorWriter& DescriptorWriter::writeImage(uint32_t binding, const vk::DescriptorImageInfo& imageInfo) {
-    assert(setLayout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
-    auto& bindingDescription = setLayout.bindings[binding];
+    assert(layout.bindings.count(binding) == 1 && "Layout does not contain specified binding");
+    const auto& bindingDescription = layout.bindings[binding];
     assert(bindingDescription.descriptorCount == 1 && "Binding single descriptor info, but binding expects multiple");
 
     vk::WriteDescriptorSet write{};
@@ -148,7 +148,7 @@ DescriptorWriter& DescriptorWriter::writeImage(uint32_t binding, const vk::Descr
 }
 
 bool DescriptorWriter::build(vk::DescriptorSet& set) {
-    bool success = pool.allocateDescriptor(setLayout.getDescriptorSetLayout(), set);
+    bool success = pool.allocateDescriptor(layout.getDescriptorSetLayout(), set);
     if (!success) {
         return false;
     }
@@ -181,7 +181,7 @@ DescriptorAllocator::~DescriptorAllocator() {
     }
 }
 
-vk::DescriptorPool Engine::DescriptorAllocator::grabPool() {
+vk::DescriptorPool DescriptorAllocator::grabPool() {
     if (!freePools.empty()) {
         //grab pool from the back of the vector and remove it from there.
         vk::DescriptorPool pool = freePools.back();
@@ -193,7 +193,7 @@ vk::DescriptorPool Engine::DescriptorAllocator::grabPool() {
     }
 }
 
-vk::DescriptorPool DescriptorAllocator::createPool(int count, vk::DescriptorPoolCreateFlags flags) const {
+vk::DescriptorPool DescriptorAllocator::createPool(uint32_t count, vk::DescriptorPoolCreateFlags flags) const {
     std::vector<vk::DescriptorPoolSize> sizes;
     sizes.reserve(descriptorSizes.sizes.size());
 
@@ -214,7 +214,7 @@ vk::DescriptorPool DescriptorAllocator::createPool(int count, vk::DescriptorPool
     }
 }
 
-bool DescriptorAllocator::allocate(const vk::DescriptorSetLayout& layout, vk::DescriptorSet& set) {
+bool DescriptorAllocator::allocateDescriptor(const vk::DescriptorSetLayout& layout, vk::DescriptorSet& set) {
     //initialize the currentPool handle if it's null
     if (!currentPool) {
         currentPool = grabPool();
@@ -269,12 +269,11 @@ void DescriptorAllocator::resetPools() {
     currentPool = nullptr;
 }
 
-void DescriptorAllocator::update(std::vector<vk::WriteDescriptorSet>& writes) const {
+void DescriptorAllocator::updateDescriptor(std::vector<vk::WriteDescriptorSet>& writes) const {
     device.getLogical().updateDescriptorSets(static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
 }
 
 DescriptorLayoutCache::DescriptorLayoutCache(Device& device) : device{device} {
-
 }
 
 DescriptorLayoutCache::~DescriptorLayoutCache() {
@@ -284,19 +283,20 @@ DescriptorLayoutCache::~DescriptorLayoutCache() {
     }
 }
 
-vk::DescriptorSetLayout DescriptorLayoutCache::createDescriptorLayout(vk::DescriptorSetLayoutCreateInfo& info){
+vk::DescriptorSetLayout DescriptorLayoutCache::createDescriptorLayout(vk::DescriptorSetLayoutCreateInfo& info) {
     DescriptorLayoutInfo layoutinfo;
     layoutinfo.bindings.reserve(info.bindingCount);
     bool isSorted = true;
-    int lastBinding = -1;
+    int32_t lastBinding = -1;
 
     //copy from the direct info struct into our own one
     for (int i = 0; i < info.bindingCount; i++) {
         layoutinfo.bindings.push_back(info.pBindings[i]);
 
         //check that the bindings are in strict increasing order
-        if (info.pBindings[i].binding > lastBinding) {
-            lastBinding = info.pBindings[i].binding;
+        int binding = static_cast<int32_t>(info.pBindings[i].binding);
+        if (binding > lastBinding) {
+            lastBinding = binding;
         } else {
             isSorted = false;
         }
@@ -353,10 +353,7 @@ bool DescriptorLayoutCache::DescriptorLayoutInfo::operator==(const DescriptorLay
 }
 
 size_t DescriptorLayoutCache::DescriptorLayoutInfo::hash() const{
-    using std::size_t;
-    using std::hash;
-
-    size_t seed = hash<size_t>()(bindings.size());
+    size_t seed = std::hash<size_t>()(bindings.size());
 
     for (const auto& b : bindings) {
         //pack the binding data
@@ -428,7 +425,7 @@ bool DescriptorBuilder::build(vk::DescriptorSet& set, vk::DescriptorSetLayout& l
     layout = cache.createDescriptorLayout(layoutInfo);
 
     //allocate descriptor
-    bool success = allocator.allocate(layout, set);
+    bool success = allocator.allocateDescriptor(layout, set);
     if (!success) return false;
 
     //write descriptor
@@ -436,7 +433,7 @@ bool DescriptorBuilder::build(vk::DescriptorSet& set, vk::DescriptorSetLayout& l
         w.dstSet = set;
     }
 
-    allocator.update(writes);
+    allocator.updateDescriptor(writes);
     return true;
 }
 
@@ -450,7 +447,7 @@ bool DescriptorBuilder::build(vk::DescriptorSet& set) {
     auto layout = cache.createDescriptorLayout(layoutInfo);
 
     //allocate descriptor
-    bool success = allocator.allocate(layout, set);
+    bool success = allocator.allocateDescriptor(layout, set);
     if (!success) return false;
 
     //write descriptor
@@ -458,6 +455,6 @@ bool DescriptorBuilder::build(vk::DescriptorSet& set) {
         w.dstSet = set;
     }
 
-    allocator.update(writes);
+    allocator.updateDescriptor(writes);
     return true;
 }*/
